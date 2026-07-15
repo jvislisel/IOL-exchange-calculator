@@ -1,0 +1,11 @@
+{
+  "name": "iol-exchange-calculator",
+  "version": "1.0.0",
+  "description": "MR Biometry formula calculator for IOL exchange (independent implementation).",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "test": "node --test"
+  },
+  "license": "MIT"
+}

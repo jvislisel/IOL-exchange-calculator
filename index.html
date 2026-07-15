@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>IOL Exchange Power Calculator — MR Biometry Formula</title>
+<meta name="description" content="Free calculator for the MR Biometry formula (Cheng et al., Ophthalmology 2026) that estimates the ideal replacement IOL power for lens exchange. Independent implementation." />
+<link rel="preconnect" href="https://calc.apacrs.org" />
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+<header class="masthead">
+  <div class="wrap">
+    <p class="eyebrow">IOL Exchange &middot; MR Biometry Formula</p>
+    <h1>Replacement IOL Power Calculator</h1>
+    <p class="lede">Estimates the ideal intraocular lens power to exchange to, using the manifest-refraction (MR) biometry formula for eyes undergoing lens exchange.</p>
+    <span class="tag no-print">Independent implementation &middot; not affiliated with the authors</span>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="calc">
+    <!-- ================= INPUTS ================= -->
+    <form id="calc-form" novalidate>
+      <fieldset>
+        <legend>Pre-exchange biometry</legend>
+        <div class="field-row">
+          <div class="field full">
+            <label for="al">Axial length <span class="unit">mm</span></label>
+            <input class="input" id="al" inputmode="decimal" autocomplete="off" placeholder="e.g. 24.03" />
+          </div>
+          <div class="field">
+            <label for="k1">Keratometry K1 <span class="unit">D</span></label>
+            <input class="input" id="k1" inputmode="decimal" autocomplete="off" placeholder="e.g. 43.50" data-k />
+          </div>
+          <div class="field">
+            <label for="k2">Keratometry K2 <span class="unit">D</span></label>
+            <input class="input" id="k2" inputmode="decimal" autocomplete="off" placeholder="e.g. 44.25" data-k />
+          </div>
+          <div class="field-note" id="k-derived"></div>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Original (explanted) IOL</legend>
+        <div class="field-row">
+          <div class="field">
+            <label for="orig-power">IOL power <span class="unit">D</span></label>
+            <input class="input" id="orig-power" inputmode="decimal" autocomplete="off" placeholder="e.g. 21.00" />
+          </div>
+          <div class="field">
+            <label for="orig-a">A-constant</label>
+            <input class="input" id="orig-a" inputmode="decimal" autocomplete="off" placeholder="e.g. 119.00" />
+          </div>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Manifest refraction with the original IOL</legend>
+        <div class="field-row" id="mr-sphcyl">
+          <div class="field">
+            <label for="mr-sph">Sphere <span class="unit">D</span></label>
+            <input class="input" id="mr-sph" inputmode="decimal" autocomplete="off" placeholder="e.g. -0.50" data-mr />
+          </div>
+          <div class="field">
+            <label for="mr-cyl">Cylinder <span class="unit">D</span></label>
+            <input class="input" id="mr-cyl" inputmode="decimal" autocomplete="off" placeholder="e.g. -0.75" data-mr />
+          </div>
+        </div>
+        <div class="field full" id="mr-se-wrap" hidden>
+          <label for="mr-se">Spherical equivalent <span class="unit">D</span></label>
+          <input class="input" id="mr-se" inputmode="decimal" autocomplete="off" placeholder="e.g. -0.87" />
+        </div>
+        <div class="field-note" style="display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-top:0.7rem;">
+          <span class="derived" id="se-derived"></span>
+          <span class="seg no-print" role="group" aria-label="Refraction entry mode">
+            <button type="button" id="mode-sphcyl" aria-pressed="true">Sphere / cylinder</button>
+            <button type="button" id="mode-se" aria-pressed="false">SE directly</button>
+          </span>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>New IOL &amp; target</legend>
+        <div class="field-row">
+          <div class="field">
+            <label for="new-a">New IOL A-constant</label>
+            <input class="input" id="new-a" inputmode="decimal" autocomplete="off" placeholder="e.g. 119.00" />
+          </div>
+          <div class="field">
+            <label for="target">Target refraction <span class="unit">D SE</span></label>
+            <input class="input" id="target" inputmode="decimal" autocomplete="off" value="0.00" />
+          </div>
+          <div class="field-note">Target is the intended postoperative spherical equivalent. Use 0.00 for plano; a negative value for planned myopia.</div>
+        </div>
+      </fieldset>
+    </form>
+
+    <!-- ================= RESULT ================= -->
+    <aside class="result" id="result" aria-live="polite">
+      <div class="result-head">
+        <h2>Recommended new IOL power</h2>
+        <p>MR biometry formula &middot; assumes in-the-bag placement</p>
+      </div>
+      <div id="result-body">
+        <div class="result-empty">Enter the biometry, the original IOL, and the manifest refraction to see the recommended power.</div>
+      </div>
+    </aside>
+  </div>
+
+  <!-- ================= HOW IT WORKS ================= -->
+  <section class="doc" id="how">
+    <h2>How the formula works</h2>
+    <p class="sub">Cheng et&nbsp;al., <span style="font-style:italic">Ophthalmology</span> 2026: the MR biometry formula.</p>
+
+    <p class="prose">When an eye needs a lens exchange, the original IOL has already told you something valuable: how far the real refractive outcome landed from what a formula predicted. The MR biometry formula carries that observed error forward instead of discarding it, which lets it correct for whatever caused the original refractive surprise (biometry error, lens position, and so on) rather than repeating it.</p>
+
+    <div class="formula" aria-label="R equals open paren a minus b close paren plus c">
+      <em>R</em> <span class="op">=</span> ( <em>a</em> <span class="op">&minus;</span> <em>b</em> ) <span class="op">+</span> <em>c</em>
+    </div>
+
+    <div class="legend-grid">
+      <div class="legend-item"><span class="sym">R</span><span class="txt">Predicted postoperative refraction with the new IOL (what the calculator solves for, or targets).</span></div>
+      <div class="legend-item"><span class="sym">a</span><span class="txt">Measured spherical equivalent of the manifest refraction <em>with the original IOL still in place</em>.</span></div>
+      <div class="legend-item"><span class="sym">b</span><span class="txt">Holladay&nbsp;1 predicted refraction for the <em>original</em> IOL and its power.</span></div>
+      <div class="legend-item"><span class="sym">c</span><span class="txt">Holladay&nbsp;1 predicted refraction for the <em>new</em> IOL and its power.</span></div>
+    </div>
+
+    <p class="prose">The term <em>(a&nbsp;&minus;&nbsp;b)</em> is the observed prediction error of the original lens. Adding it to the fresh Holladay&nbsp;1 prediction for the replacement lens (<em>c</em>) anchors the new estimate to reality. The authors chose the Holladay&nbsp;1 formula specifically because it does not require phakic anterior chamber depth or lens thickness, measurements that are unavailable in a pseudophakic eye.</p>
+
+    <div class="worked">
+      <h3>Worked example from the paper</h3>
+      <p style="margin:0 0 0.9rem;font-size:0.9rem;color:var(--ink-soft);">A 25.0&nbsp;D CCWTT3 lens exchanged for a 25.0&nbsp;D LI60AO:</p>
+      <dl>
+        <dt>a</dt><dd>+0.75 D&nbsp;&nbsp;(actual pre-exchange SE)</dd>
+        <dt>b</dt><dd>+0.29 D&nbsp;&nbsp;(Holladay 1, original IOL)</dd>
+        <dt>c</dt><dd>&minus;0.31 D&nbsp;&nbsp;(Holladay 1, new IOL)</dd>
+      </dl>
+      <div class="eq">R = (0.75 &minus; 0.29) + (&minus;0.31) = <strong>+0.15 D</strong></div>
+    </div>
+
+    <p class="prose">This calculator runs that same computation, then inverts it: given your target refraction it solves for the new IOL power whose prediction, corrected by the observed error, lands on your target. It also tabulates the nearby available powers so you can see the trade-off at each 0.5&nbsp;D step.</p>
+  </section>
+
+  <!-- ================= BARRETT RX ================= -->
+  <section class="doc" id="barrett">
+    <h2>Compare with the Barrett Rx formula</h2>
+    <p class="sub">The other formula developed specifically for IOL exchange.</p>
+
+    <p class="prose">The Barrett Rx formula is the established exchange formula and the comparator in the paper. It is proprietary and unpublished, so it cannot be reproduced here, but it is hosted free of charge by the APACRS. Open it in a new tab and copy across the values you have already entered:</p>
+
+    <p><a class="btn primary" id="barrett-link" href="https://calc.apacrs.org/barrett_rx105/" target="_blank" rel="noopener noreferrer">Open the official Barrett Rx calculator &nearr;</a></p>
+
+    <table class="mapping">
+      <thead><tr><th>Your value here</th><th>Enter in Barrett Rx as</th><th class="map-val" style="text-align:right">Value</th></tr></thead>
+      <tbody id="barrett-map">
+        <tr><td>Axial length</td><td>Axial Length</td><td class="map-val" data-map="al">&mdash;</td></tr>
+        <tr><td>K1 / K2</td><td>Measured K1 / K2</td><td class="map-val" data-map="k">&mdash;</td></tr>
+        <tr><td>Original IOL power</td><td>Implanted IOL Power</td><td class="map-val" data-map="origp">&mdash;</td></tr>
+        <tr><td>Original A-constant</td><td>Implanted IOL A-constant</td><td class="map-val" data-map="origa">&mdash;</td></tr>
+        <tr><td>Manifest refraction (SE)</td><td>Current Refraction (sphere / cyl / axis)</td><td class="map-val" data-map="mr">&mdash;</td></tr>
+        <tr><td>New IOL A-constant</td><td>New IOL A-constant</td><td class="map-val" data-map="newa">&mdash;</td></tr>
+        <tr><td>Target refraction</td><td>Target Refraction</td><td class="map-val" data-map="target">&mdash;</td></tr>
+      </tbody>
+    </table>
+
+    <div class="callout">
+      <strong>What the paper found.</strong> Across all three lens-position subgroups (in-the-bag, anterior optic capture, and sulcus with posterior optic capture), the MR biometry formula had a significantly lower root-mean-square absolute error than Barrett Rx. For in-the-bag exchanges its median prediction error was 0.00&nbsp;D, versus &minus;0.23&nbsp;D for Barrett Rx.
+    </div>
+  </section>
+
+  <!-- ================= LIMITATIONS ================= -->
+  <section class="doc" id="limits">
+    <h2>Limitations &amp; scope</h2>
+    <p class="sub">Read before using for planning.</p>
+    <ul>
+      <li><strong>Stable, well-positioned lens required.</strong> The method depends on an accurate manifest refraction through a stable original IOL. It is <em>not</em> applicable to dislocated IOLs.</li>
+      <li><strong>Spherical equivalent only.</strong> Like the paper, this tool predicts spherical equivalent. It does not plan toric cylinder power or axis.</li>
+      <li><strong>In-the-bag assumption.</strong> Calculations assume in-the-bag placement. Expect a myopic shift with anterior optic capture, and a milder myopic shift with sulcus placement and posterior optic capture; adjust accordingly.</li>
+      <li><strong>No prior corneal refractive surgery.</strong> The formula was validated only in eyes without a history of LASIK, PRK, or RK.</li>
+      <li><strong>Single-center validation.</strong> The source study was retrospective and conducted at one center. Results should be interpreted with that in mind.</li>
+      <li><strong>Independent build.</strong> This calculator is an independent implementation of the published method and has not been verified against the authors' own tool. See the note on the methodology below.</li>
+    </ul>
+
+    <div class="callout" id="methodology">
+      <strong>How this implementation is verified.</strong> The Holladay&nbsp;1 engine is a from-first-principles vergence model whose constants are pinned to Holladay et&nbsp;al. (1988). It is checked by an automated test suite and cross-validated numerically against an independent, separately authored Holladay&nbsp;1 implementation, agreeing to better than 0.01&nbsp;D across the clinical range. It has not yet been validated against the study authors' own spreadsheet tool.
+    </div>
+  </section>
+
+  <!-- ================= CITATION ================= -->
+  <section class="doc" id="credit">
+    <h2>Source &amp; credit</h2>
+    <p class="sub">All credit for the formula belongs to the original authors.</p>
+    <div class="cite">
+      <p style="margin:0 0 0.6rem;"><span class="authors">Cheng X, Mendes F, Fortingo K, Jaber JM, Chen AJ, Weikert MP, Wang L, Koch DD.</span> A New Intraocular Lens Power Calculation Formula for Eyes Undergoing Lens Exchange. <span class="journal">Ophthalmology.</span> 2026;133(6):700&ndash;708.</p>
+      <p style="margin:0;"><a href="https://doi.org/10.1016/j.ophtha.2026.01.017" target="_blank" rel="noopener noreferrer">doi:10.1016/j.ophtha.2026.01.017 &nearr;</a></p>
+    </div>
+    <p class="prose" style="margin-top:1.2rem;font-size:0.9rem;">This web calculator is an independent implementation created to make the published method easy to use. It is not affiliated with, reviewed by, or endorsed by the authors, Baylor College of Medicine, the American Academy of Ophthalmology, or <span style="font-style:italic">Ophthalmology</span> / Elsevier. The Barrett Rx formula and calculator are the work of Graham&nbsp;D.&nbsp;Barrett and the APACRS.</p>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <p class="disclaimer">
+      <strong>Disclaimer. Please read.</strong> This calculator is provided for general educational and informational purposes only. It is <strong>not</strong> a medical device, is not a substitute for professional clinical judgment, and does not constitute medical advice or a recommendation for any patient. It has not been cleared or approved by the FDA or any regulatory body. Intraocular lens power selection is the sole responsibility of the treating surgeon, who must independently verify every input and every result using validated instruments and methods before any surgical decision. The formula is reproduced from published literature and this is an independent implementation that may contain errors; no representation is made that the results are accurate, complete, or fit for any particular purpose. <strong>To the maximum extent permitted by law, the author and contributors of this tool disclaim all warranties, express or implied, and shall not be liable for any direct, indirect, incidental, consequential, or other damages, injury, or loss of any kind arising out of or in connection with the use of, or reliance on, this calculator or its results. By using this calculator you accept these terms and assume all risk.</strong>
+    </p>
+    <div class="meta">
+      <span>Independent implementation of the MR biometry formula.</span>
+      <a href="#credit">Citation</a>
+      <a href="https://doi.org/10.1016/j.ophtha.2026.01.017" target="_blank" rel="noopener noreferrer">Original manuscript</a>
+    </div>
+  </div>
+</footer>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>

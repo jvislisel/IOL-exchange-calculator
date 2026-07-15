@@ -1,0 +1,7 @@
+# The source manuscript is copyrighted (Elsevier / AAO). Do NOT publish it.
+original-manuscript.pdf
+
+# OS / editor cruft
+.DS_Store
+node_modules/
+*.log
