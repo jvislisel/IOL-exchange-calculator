@@ -13,9 +13,8 @@
 <header class="masthead">
   <div class="wrap">
     <p class="eyebrow">IOL Exchange &middot; MR Biometry Formula</p>
-    <h1>Replacement IOL Power Calculator</h1>
-    <p class="lede">Estimates the ideal intraocular lens power to exchange to, using the manifest-refraction (MR) biometry formula for eyes undergoing lens exchange.</p>
-    <span class="tag no-print">Independent implementation &middot; not affiliated with the authors</span>
+    <h1>IOL Exchange Power Calculator</h1>
+    <p class="lede">Estimates the ideal IOL power for IOL exchange procedures using the manifest refraction (MR) biometry formula for eyes undergoing lens exchange.</p>
   </div>
 </header>
 
@@ -23,6 +22,24 @@
   <div class="calc">
     <!-- ================= INPUTS ================= -->
     <form id="calc-form" novalidate>
+      <fieldset>
+        <legend>Case details <span class="legend-note">for the planning sheet</span></legend>
+        <div class="field-row">
+          <div class="field full">
+            <label for="surgeon">Surgeon</label>
+            <input class="input text" id="surgeon" type="text" autocomplete="off" placeholder="Surgeon name" />
+          </div>
+          <div class="field">
+            <label for="patient">Patient</label>
+            <input class="input text" id="patient" type="text" autocomplete="off" placeholder="Patient name" />
+          </div>
+          <div class="field">
+            <label for="patient-id">Identifier</label>
+            <input class="input text" id="patient-id" type="text" autocomplete="off" placeholder="MRN / ID" />
+          </div>
+        </div>
+      </fieldset>
+
       <fieldset>
         <legend>Pre-exchange biometry</legend>
         <div class="field-row">
@@ -58,26 +75,23 @@
 
       <fieldset>
         <legend>Manifest refraction with the original IOL</legend>
-        <div class="field-row" id="mr-sphcyl">
-          <div class="field">
+        <span class="seg no-print" id="mr-mode" role="group" aria-label="Refraction entry mode">
+          <button type="button" id="mode-sphcyl" aria-pressed="true">Sphere / cylinder</button>
+          <button type="button" id="mode-se" aria-pressed="false">SE directly</button>
+        </span>
+        <div class="field-row">
+          <div class="field" id="mr-sph-wrap">
             <label for="mr-sph">Sphere <span class="unit">D</span></label>
             <input class="input" id="mr-sph" inputmode="decimal" autocomplete="off" placeholder="e.g. -0.50" data-mr />
           </div>
-          <div class="field">
+          <div class="field" id="mr-cyl-wrap">
             <label for="mr-cyl">Cylinder <span class="unit">D</span></label>
             <input class="input" id="mr-cyl" inputmode="decimal" autocomplete="off" placeholder="e.g. -0.75" data-mr />
           </div>
-        </div>
-        <div class="field full" id="mr-se-wrap" hidden>
-          <label for="mr-se">Spherical equivalent <span class="unit">D</span></label>
-          <input class="input" id="mr-se" inputmode="decimal" autocomplete="off" placeholder="e.g. -0.87" />
-        </div>
-        <div class="field-note" style="display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-top:0.7rem;">
-          <span class="derived" id="se-derived"></span>
-          <span class="seg no-print" role="group" aria-label="Refraction entry mode">
-            <button type="button" id="mode-sphcyl" aria-pressed="true">Sphere / cylinder</button>
-            <button type="button" id="mode-se" aria-pressed="false">SE directly</button>
-          </span>
+          <div class="field full" id="mr-se-wrap">
+            <label for="mr-se">Spherical equivalent <span class="unit">D</span> <span class="auto-tag" id="se-auto-tag">auto</span></label>
+            <input class="input" id="mr-se" inputmode="decimal" autocomplete="off" placeholder="e.g. -0.87" />
+          </div>
         </div>
       </fieldset>
 
@@ -212,6 +226,9 @@
     </div>
   </div>
 </footer>
+
+<!-- Dedicated one-page planning sheet, shown only when printing. -->
+<section id="print-sheet" class="print-only" aria-hidden="true"></section>
 
 <script type="module" src="js/app.js"></script>
 </body>

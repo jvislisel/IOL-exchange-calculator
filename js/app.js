@@ -13,14 +13,16 @@ import {
 
 const $ = (id) => document.getElementById(id);
 const els = {
+  form: $("calc-form"),
+  surgeon: $("surgeon"), patient: $("patient"), patientId: $("patient-id"),
   al: $("al"), k1: $("k1"), k2: $("k2"), kDerived: $("k-derived"),
   origPower: $("orig-power"), origA: $("orig-a"),
   mrSph: $("mr-sph"), mrCyl: $("mr-cyl"), mrSe: $("mr-se"),
-  seDerived: $("se-derived"), mrSphCyl: $("mr-sphcyl"), mrSeWrap: $("mr-se-wrap"),
+  mrSphWrap: $("mr-sph-wrap"), mrCylWrap: $("mr-cyl-wrap"),
   modeSphCyl: $("mode-sphcyl"), modeSe: $("mode-se"),
   newA: $("new-a"), target: $("target"),
   resultBody: $("result-body"),
-  barrettLink: $("barrett-link"),
+  printSheet: $("print-sheet"),
 };
 
 let seMode = "sphcyl"; // or "se"
@@ -95,6 +97,8 @@ function readInputs() {
         seOk = true;
       }
     }
+    // Reflect the computed SE into the read-only SE field for display.
+    els.mrSe.value = measuredSE == null ? "" : signed(measuredSE);
   }
 
   // Required-field presence (only complain once user has started).
@@ -225,7 +229,80 @@ function renderResult(data) {
     </div>`;
 
   const printBtn = $("print-btn");
-  if (printBtn) printBtn.addEventListener("click", () => window.print());
+  if (printBtn)
+    printBtn.addEventListener("click", () => {
+      buildPrintSheet(data, { power, nearest, atNearest, pe, rows });
+      window.print();
+    });
+}
+
+/** Build the dedicated one-page planning sheet from the current result. */
+function buildPrintSheet(data, res) {
+  const { eye, originalIol, newIol, measuredSE, target, meanK } = data;
+  const { power, nearest, atNearest, pe, rows } = res;
+  const today = new Date().toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
+  const caseVal = (el) => escapeHtml((el.value || "").trim()) || "&nbsp;";
+
+  const tableRows = rows
+    .map((r) => {
+      const isIdeal = Math.abs(r.power - nearest) < 1e-9;
+      return `<tr class="${isIdeal ? "ideal" : ""}"><td>${r.power.toFixed(2)} D</td><td>${signed(r.R)} D</td></tr>`;
+    })
+    .join("");
+
+  els.printSheet.innerHTML = `
+    <div class="sheet">
+      <div class="sheet-head">
+        <div>
+          <p class="title">IOL Exchange Power Calculator</p>
+          <p class="subtitle">MR Biometry Formula &middot; Planning Sheet</p>
+        </div>
+        <div class="date">${today}</div>
+      </div>
+
+      <div class="sheet-case">
+        <div><div class="c-k">Surgeon</div><div class="c-v">${caseVal(els.surgeon)}</div></div>
+        <div><div class="c-k">Patient</div><div class="c-v">${caseVal(els.patient)}</div></div>
+        <div><div class="c-k">Identifier</div><div class="c-v">${caseVal(els.patientId)}</div></div>
+      </div>
+
+      <div class="sheet-block">
+        <h3>Recommended new IOL power</h3>
+        <div class="sheet-result">
+          <div class="rec-k">Nearest available power (0.5 D steps)</div>
+          <div class="rec-v">${nearest.toFixed(1)} D</div>
+          <div class="rec-sub">Exact solution ${signed(power).replace("+", "")} D &middot; predicts ${signed(atNearest.R)} D at ${nearest.toFixed(1)} D<br>Observed error of original IOL (a &minus; b): ${signed(pe)} D &middot; target ${signed(target)} D</div>
+        </div>
+      </div>
+
+      <div class="sheet-cols">
+        <div class="sheet-block">
+          <h3>Inputs</h3>
+          <dl class="sheet-dl">
+            <dt>Axial length</dt><dd>${eye.axialLength.toFixed(2)} mm</dd>
+            <dt>Keratometry K1 / K2</dt><dd>${eye.k1.toFixed(2)} / ${eye.k2.toFixed(2)} D</dd>
+            <dt>Mean K</dt><dd>${meanK.toFixed(2)} D</dd>
+            <dt>Original IOL power</dt><dd>${originalIol.power.toFixed(2)} D</dd>
+            <dt>Original A-constant</dt><dd>${originalIol.aConstant.toFixed(2)}</dd>
+            <dt>MR with original IOL (SE)</dt><dd>${signed(measuredSE)} D</dd>
+            <dt>New IOL A-constant</dt><dd>${newIol.aConstant.toFixed(2)}</dd>
+            <dt>Target refraction</dt><dd>${signed(target)} D</dd>
+          </dl>
+        </div>
+        <div class="sheet-block">
+          <table class="sheet-table">
+            <caption>Predicted outcome by available power</caption>
+            <thead><tr><th>New IOL power</th><th>Predicted SE</th></tr></thead>
+            <tbody>${tableRows}</tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="sheet-foot">
+        <div class="cite-line">Cheng X, Mendes F, Fortingo K, et al. A New Intraocular Lens Power Calculation Formula for Eyes Undergoing Lens Exchange. Ophthalmology. 2026;133:700&ndash;708. doi:10.1016/j.ophtha.2026.01.017</div>
+        Independent implementation, not affiliated with or endorsed by the authors. For educational and informational use only; not a medical device. All values and results must be independently verified by the treating surgeon before any surgical decision. Provided without warranty; no liability is accepted for outcomes.
+      </div>
+    </div>`;
 }
 
 function escapeHtml(s) {
@@ -235,19 +312,8 @@ function escapeHtml(s) {
 // ---- derived-value chips ----------------------------------------------------
 
 function updateDerived(data) {
-  const { raw, meanK, measuredSE } = data;
-  if (meanK != null) {
-    els.kDerived.textContent = `Mean K = ${meanK.toFixed(2)} D`;
-  } else {
-    els.kDerived.textContent = "";
-  }
-  if (measuredSE != null && seMode === "sphcyl") {
-    els.seDerived.innerHTML = `Spherical equivalent <b>${signed(measuredSE)} D</b>`;
-  } else if (seMode === "se") {
-    els.seDerived.textContent = "";
-  } else {
-    els.seDerived.textContent = "";
-  }
+  const { meanK } = data;
+  els.kDerived.textContent = meanK != null ? `Mean K = ${meanK.toFixed(2)} D` : "";
 }
 
 function updateBarrettMap(data) {
@@ -293,8 +359,13 @@ function recompute() {
 function setSeMode(mode) {
   seMode = mode;
   const sphcyl = mode === "sphcyl";
-  els.mrSphCyl.hidden = !sphcyl;
-  els.mrSeWrap.hidden = sphcyl;
+  // Sphere/cylinder inputs are only present in sphere/cylinder mode.
+  els.mrSphWrap.hidden = !sphcyl;
+  els.mrCylWrap.hidden = !sphcyl;
+  // SE field is read-only (auto-filled) in sphere/cylinder mode, editable in SE mode.
+  els.mrSe.readOnly = sphcyl;
+  if (!sphcyl) els.mrSe.select?.();
+  els.form.classList.toggle("mode-sphcyl", sphcyl);
   els.modeSphCyl.setAttribute("aria-pressed", String(sphcyl));
   els.modeSe.setAttribute("aria-pressed", String(!sphcyl));
   recompute();
@@ -302,9 +373,8 @@ function setSeMode(mode) {
 
 // ---- wire up ----------------------------------------------------------------
 
-document.getElementById("calc-form").addEventListener("input", recompute);
-els.target.addEventListener("input", recompute);
+els.form.addEventListener("input", recompute);
 els.modeSphCyl.addEventListener("click", () => setSeMode("sphcyl"));
 els.modeSe.addEventListener("click", () => setSeMode("se"));
 
-recompute();
+setSeMode("sphcyl"); // initialize refraction-entry mode and first render

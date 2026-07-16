@@ -136,6 +136,22 @@ legend + * { clear: both; }
   transition: background 0.15s var(--ease), color 0.15s var(--ease);
 }
 .seg button[aria-pressed="true"] { background: var(--accent); color: oklch(0.99 0.01 258); }
+#mr-mode { margin-bottom: 1rem; }
+
+.legend-note { font-weight: 500; text-transform: none; letter-spacing: 0; color: var(--ink-faint); font-size: 0.72rem; }
+
+/* Text (non-numeric) inputs use the sans face, not tabular mono */
+.input.text { font-family: var(--sans); font-variant-numeric: normal; font-size: 0.95rem; }
+
+/* "auto" badge on the auto-filled SE label */
+.auto-tag {
+  display: none; font-size: 0.62rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--accent-strong); background: var(--accent-tint); border-radius: 4px; padding: 0.05rem 0.35rem;
+  vertical-align: middle;
+}
+.mode-sphcyl .auto-tag { display: inline-block; }
+.input[readonly] { background: var(--paper-2); color: var(--ink-soft); cursor: default; }
+.input[readonly]:focus { border-color: var(--rule-strong); box-shadow: none; }
 
 .derived { font-size: 0.8rem; color: var(--ink-faint); font-variant-numeric: tabular-nums; }
 .derived b { color: var(--ink-soft); font-weight: 600; }
@@ -253,19 +269,49 @@ footer .disclaimer { font-size: 0.76rem; line-height: 1.55; color: var(--ink-fai
 footer .disclaimer strong { color: var(--ink-soft); }
 footer .meta { margin-top: 1.2rem; font-size: 0.78rem; color: var(--ink-faint); display: flex; gap: 1.2rem; flex-wrap: wrap; }
 
-/* ---- Print ------------------------------------------------------------ */
+/* ---- Print planning sheet --------------------------------------------- */
+.print-only { display: none; }
+
 @media print {
-  :root { --shadow: none; }
-  body { font-size: 11pt; }
-  .masthead, section.doc, footer { border: none; }
-  .calc { display: block; }
-  .result { position: static; box-shadow: none; page-break-inside: avoid; }
-  .result-actions, .seg, .no-print { display: none !important; }
-  section.doc, .doc-nav { display: none; }
-  .print-only { display: block; }
+  @page { margin: 14mm 16mm; }
+  /* Hide the entire interactive app; show only the planning sheet. */
+  body > header, body > main, body > footer { display: none !important; }
+  body { background: #fff; font-size: 10.5pt; }
+  #print-sheet.print-only { display: block; color: var(--ink); }
   a { color: var(--ink); text-decoration: none; }
 }
-.print-only { display: none; }
+
+/* Sheet internals (styled here so they also render if forced visible). */
+.sheet { max-width: 190mm; margin: 0 auto; }
+.sheet-head { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid var(--ink); padding-bottom: 8pt; margin-bottom: 12pt; }
+.sheet-head .title { font-family: var(--serif); font-size: 16pt; font-weight: 600; margin: 0; line-height: 1.1; }
+.sheet-head .subtitle { font-family: var(--sans); font-size: 8pt; color: var(--ink-soft); margin: 3pt 0 0; letter-spacing: 0.04em; text-transform: uppercase; }
+.sheet-head .date { font-family: var(--sans); font-size: 9pt; color: var(--ink-soft); text-align: right; white-space: nowrap; }
+
+.sheet-case { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6pt 18pt; margin-bottom: 12pt; }
+.sheet-case .c-k { font-family: var(--sans); font-size: 7.5pt; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-faint); }
+.sheet-case .c-v { font-family: var(--sans); font-size: 11pt; color: var(--ink); border-bottom: 1px solid var(--rule-strong); padding-bottom: 2pt; min-height: 14pt; }
+
+.sheet-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 18pt; align-items: start; }
+.sheet-block h3 { font-family: var(--sans); font-size: 8pt; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-faint); margin: 0 0 6pt; border-bottom: 1px solid var(--rule); padding-bottom: 3pt; }
+.sheet-dl { display: grid; grid-template-columns: auto 1fr; gap: 4pt 12pt; font-size: 9.5pt; margin: 0; }
+.sheet-dl dt { color: var(--ink-soft); }
+.sheet-dl dd { margin: 0; font-family: var(--mono); font-variant-numeric: tabular-nums; text-align: right; color: var(--ink); }
+
+.sheet-result { border: 1.5pt solid var(--ink); border-radius: 4pt; padding: 10pt 12pt; margin-top: 4pt; }
+.sheet-result .rec-k { font-family: var(--sans); font-size: 8pt; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-soft); }
+.sheet-result .rec-v { font-family: var(--serif); font-size: 30pt; font-weight: 600; line-height: 1; font-variant-numeric: tabular-nums; margin: 2pt 0; }
+.sheet-result .rec-sub { font-family: var(--mono); font-size: 8.5pt; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+
+.sheet-table { width: 100%; border-collapse: collapse; margin-top: 10pt; font-variant-numeric: tabular-nums; }
+.sheet-table caption { text-align: left; font-family: var(--sans); font-size: 8pt; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-faint); padding-bottom: 4pt; }
+.sheet-table th, .sheet-table td { font-family: var(--mono); font-size: 9pt; text-align: right; padding: 3pt 8pt; border-bottom: 0.5pt solid var(--rule); }
+.sheet-table th { font-family: var(--sans); font-size: 7.5pt; text-transform: uppercase; color: var(--ink-faint); }
+.sheet-table th:first-child, .sheet-table td:first-child { text-align: left; }
+.sheet-table tr.ideal td { font-weight: 700; background: var(--paper-2); }
+
+.sheet-foot { margin-top: 14pt; padding-top: 8pt; border-top: 1px solid var(--rule); font-size: 7pt; line-height: 1.4; color: var(--ink-faint); }
+.sheet-foot .cite-line { font-size: 7.5pt; color: var(--ink-soft); margin-bottom: 4pt; }
 
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; }

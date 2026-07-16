@@ -82,11 +82,11 @@ The suite includes:
 2. Authenticate the CLI once: `gh auth login` (choose GitHub.com → HTTPS → login via browser).
 3. From this folder:
    ```bash
-   gh repo create aec-IOL-exchange-calculator --public --source=. --push
-   gh api -X POST repos/:owner/aec-IOL-exchange-calculator/pages -f build_type=legacy -f 'source[branch]=main' -f 'source[path]=/'
+   gh repo create IOL-exchange-calculator --public --source=. --push
+   gh api -X POST repos/:owner/IOL-exchange-calculator/pages -f build_type=legacy -f 'source[branch]=main' -f 'source[path]=/'
    ```
    (Or enable Pages in the repo's Settings → Pages → Deploy from branch → `main` / root.)
-4. The site publishes at `https://<your-username>.github.io/aec-IOL-exchange-calculator/`.
+4. The site publishes at `https://<your-username>.github.io/IOL-exchange-calculator/`.
 
 The manuscript PDF is git-ignored and is **not** published (copyright).
 
