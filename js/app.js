@@ -23,6 +23,7 @@ const els = {
   newA: $("new-a"), target: $("target"),
   resultBody: $("result-body"),
   printSheet: $("print-sheet"),
+  resetBtn: $("reset-btn"),
 };
 
 let seMode = "sphcyl"; // or "se"
@@ -52,8 +53,43 @@ function rangeError(field, value) {
   return null;
 }
 
+// Typical (expected) clinical ranges. Values inside the hard RANGES limits but
+// outside these are accepted but flagged for the user to double-check. These are
+// UI advisories only, not part of the math engine.
+const TYPICAL = {
+  axialLength: { min: 20.5, max: 27.0 },
+  meanK: { min: 38, max: 48 },
+  aConstant: { min: 115, max: 122 },
+  iolPower: { min: 6, max: 34 },
+  targetRefraction: { min: -3.0, max: 1.0 },
+};
+
+function typicalWarn(field, value) {
+  const t = TYPICAL[field];
+  if (!t) return null;
+  return value < t.min || value > t.max ? "Outside the typical range — please verify" : null;
+}
+
 function setInvalid(el, isInvalid) {
   el.classList.toggle("invalid", isInvalid);
+}
+
+/** Show or clear an inline "verify this value" warning under a field. */
+function setFieldWarn(el, msg) {
+  const field = el.closest(".field");
+  el.classList.toggle("warn", !!msg);
+  if (!field) return;
+  let w = field.querySelector(".field-warn");
+  if (msg) {
+    if (!w) {
+      w = document.createElement("div");
+      w.className = "field-warn";
+      field.appendChild(w);
+    }
+    w.innerHTML = `<span class="warn-ico" aria-hidden="true">!</span><span>${escapeHtml(msg)}</span>`;
+  } else if (w) {
+    w.remove();
+  }
 }
 
 // ---- read + validate inputs -------------------------------------------------
@@ -64,8 +100,9 @@ function setInvalid(el, isInvalid) {
  */
 function readInputs() {
   const errors = [];
-  const clearInvalid = [els.al, els.k1, els.k2, els.origPower, els.origA, els.mrSph, els.mrCyl, els.mrSe, els.newA, els.target];
-  clearInvalid.forEach((e) => setInvalid(e, false));
+  const warnings = [];
+  const allFields = [els.al, els.k1, els.k2, els.origPower, els.origA, els.mrSph, els.mrCyl, els.mrSe, els.newA, els.target];
+  allFields.forEach((e) => { setInvalid(e, false); setFieldWarn(e, null); });
 
   // Axial length
   const al = num(els.al);
@@ -131,22 +168,29 @@ function readInputs() {
     [na, els.newA, "aConstant"],
     [tg, els.target, "targetRefraction"],
   ];
+  const unit = (field) => (RANGES[field].unit ? " " + RANGES[field].unit : "");
   for (const [f, el, field] of rangeChecks) {
-    if (!f.empty && f.ok) {
-      const err = rangeError(field, f.value);
-      if (err) { errors.push(err); setInvalid(el, true); }
+    if (f.empty || !f.ok) continue;
+    const err = rangeError(field, f.value);
+    if (err) { errors.push(err); setInvalid(el, true); continue; }
+    if (typicalWarn(field, f.value)) {
+      setFieldWarn(el, typicalWarn(field, f.value));
+      warnings.push(`${RANGES[field].label} ${f.value}${unit(field)}`);
     }
   }
-  for (const [f, el] of [[k1, els.k1], [k2, els.k2]]) {
-    if (!f.empty && f.ok) {
-      const err = rangeError("meanK", f.value);
-      if (err) { errors.push(err); setInvalid(el, true); }
+  for (const [f, el, lbl] of [[k1, els.k1, "K1"], [k2, els.k2, "K2"]]) {
+    if (f.empty || !f.ok) continue;
+    const err = rangeError("meanK", f.value);
+    if (err) { errors.push(err); setInvalid(el, true); continue; }
+    if (typicalWarn("meanK", f.value)) {
+      setFieldWarn(el, typicalWarn("meanK", f.value));
+      warnings.push(`Keratometry ${lbl} ${f.value} D`);
     }
   }
 
   const ok = anyStarted && allPresent && errors.length === 0;
   return {
-    ok, anyStarted, errors: [...new Set(errors)],
+    ok, anyStarted, errors: [...new Set(errors)], warnings,
     meanK,
     eye: ok ? { axialLength: al.value, k1: k1.value, k2: k2.value } : null,
     originalIol: ok ? { power: op.value, aConstant: oa.value } : null,
@@ -198,7 +242,15 @@ function renderResult(data) {
     })
     .join("");
 
+  const warnHtml =
+    data.warnings && data.warnings.length
+      ? `<div class="result-warn"><span class="warn-ico" aria-hidden="true">!</span><span>Unusual values, please double-check: ${data.warnings
+          .map(escapeHtml)
+          .join("; ")}.</span></div>`
+      : "";
+
   els.resultBody.innerHTML = `
+    ${warnHtml}
     <div class="headline">
       <div class="num">${nearest.toFixed(1)}<span class="d">D</span></div>
       <div class="exact">
@@ -278,20 +330,23 @@ function buildPrintSheet(data, res) {
       <div class="sheet-cols">
         <div class="sheet-block">
           <h3>Inputs</h3>
-          <dl class="sheet-dl">
-            <dt>Axial length</dt><dd>${eye.axialLength.toFixed(2)} mm</dd>
-            <dt>Keratometry K1 / K2</dt><dd>${eye.k1.toFixed(2)} / ${eye.k2.toFixed(2)} D</dd>
-            <dt>Mean K</dt><dd>${meanK.toFixed(2)} D</dd>
-            <dt>Original IOL power</dt><dd>${originalIol.power.toFixed(2)} D</dd>
-            <dt>Original A-constant</dt><dd>${originalIol.aConstant.toFixed(2)}</dd>
-            <dt>MR with original IOL (SE)</dt><dd>${signed(measuredSE)} D</dd>
-            <dt>New IOL A-constant</dt><dd>${newIol.aConstant.toFixed(2)}</dd>
-            <dt>Target refraction</dt><dd>${signed(target)} D</dd>
-          </dl>
+          <table class="sheet-table sheet-io">
+            <thead><tr><th>Measurement</th><th>Value</th></tr></thead>
+            <tbody>
+              <tr><td>Axial length</td><td>${eye.axialLength.toFixed(2)} mm</td></tr>
+              <tr><td>Keratometry K1 / K2</td><td>${eye.k1.toFixed(2)} / ${eye.k2.toFixed(2)} D</td></tr>
+              <tr><td>Mean K</td><td>${meanK.toFixed(2)} D</td></tr>
+              <tr><td>Original IOL power</td><td>${originalIol.power.toFixed(2)} D</td></tr>
+              <tr><td>Original A-constant</td><td>${originalIol.aConstant.toFixed(2)}</td></tr>
+              <tr><td>MR with original IOL (SE)</td><td>${signed(measuredSE)} D</td></tr>
+              <tr><td>New IOL A-constant</td><td>${newIol.aConstant.toFixed(2)}</td></tr>
+              <tr><td>Target refraction</td><td>${signed(target)} D</td></tr>
+            </tbody>
+          </table>
         </div>
         <div class="sheet-block">
+          <h3>Predicted outcome by available power</h3>
           <table class="sheet-table">
-            <caption>Predicted outcome by available power</caption>
             <thead><tr><th>New IOL power</th><th>Predicted SE</th></tr></thead>
             <tbody>${tableRows}</tbody>
           </table>
@@ -359,16 +414,25 @@ function recompute() {
 function setSeMode(mode) {
   seMode = mode;
   const sphcyl = mode === "sphcyl";
-  // Sphere/cylinder inputs are only present in sphere/cylinder mode.
-  els.mrSphWrap.hidden = !sphcyl;
-  els.mrCylWrap.hidden = !sphcyl;
+  // Sphere/cylinder stay visible but are disabled (grayed) in SE-direct mode, so
+  // it is obvious they do not need to be filled in.
+  els.mrSph.disabled = !sphcyl;
+  els.mrCyl.disabled = !sphcyl;
+  els.mrSphWrap.classList.toggle("disabled", !sphcyl);
+  els.mrCylWrap.classList.toggle("disabled", !sphcyl);
   // SE field is read-only (auto-filled) in sphere/cylinder mode, editable in SE mode.
   els.mrSe.readOnly = sphcyl;
-  if (!sphcyl) els.mrSe.select?.();
   els.form.classList.toggle("mode-sphcyl", sphcyl);
   els.modeSphCyl.setAttribute("aria-pressed", String(sphcyl));
   els.modeSe.setAttribute("aria-pressed", String(!sphcyl));
   recompute();
+}
+
+/** Clear every field and return to the default sphere/cylinder entry mode. */
+function resetAll() {
+  els.form.reset();
+  els.mrSe.value = "";
+  setSeMode("sphcyl");
 }
 
 // ---- wire up ----------------------------------------------------------------
@@ -376,5 +440,6 @@ function setSeMode(mode) {
 els.form.addEventListener("input", recompute);
 els.modeSphCyl.addEventListener("click", () => setSeMode("sphcyl"));
 els.modeSe.addEventListener("click", () => setSeMode("se"));
+els.resetBtn.addEventListener("click", resetAll);
 
 setSeMode("sphcyl"); // initialize refraction-entry mode and first render

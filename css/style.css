@@ -153,6 +153,26 @@ legend + * { clear: both; }
 .input[readonly] { background: var(--paper-2); color: var(--ink-soft); cursor: default; }
 .input[readonly]:focus { border-color: var(--rule-strong); box-shadow: none; }
 
+/* Disabled (grayed) inputs — e.g. sphere/cylinder while in SE-direct mode */
+.input:disabled { background: var(--paper-2); color: var(--ink-faint); cursor: not-allowed; opacity: 0.55; }
+.field.disabled label { color: var(--ink-faint); opacity: 0.6; }
+
+/* Soft "verify this value" warning (within hard limits, outside typical range) */
+.input.warn, .input.warn:focus { border-color: var(--warn); box-shadow: 0 0 0 3px var(--warn-tint); }
+.field-warn { display: flex; align-items: center; gap: 0.4rem; font-size: 0.76rem; font-weight: 500; color: oklch(0.45 0.12 55); margin-top: 0.1rem; }
+.warn-ico {
+  display: inline-flex; align-items: center; justify-content: center; flex: none;
+  width: 1.05rem; height: 1.05rem; border-radius: 50%; background: var(--warn);
+  color: oklch(0.99 0.02 65); font-size: 0.72rem; font-weight: 800; line-height: 1;
+}
+.result-warn {
+  display: flex; gap: 0.55rem; align-items: flex-start;
+  padding: 0.8rem 1.35rem; background: var(--warn-tint); color: oklch(0.42 0.12 55);
+  font-size: 0.82rem; border-bottom: 1px solid var(--rule);
+}
+
+.form-actions { margin-top: 1.6rem; display: flex; justify-content: flex-end; }
+
 .derived { font-size: 0.8rem; color: var(--ink-faint); font-variant-numeric: tabular-nums; }
 .derived b { color: var(--ink-soft); font-weight: 600; }
 
@@ -293,7 +313,10 @@ footer .meta { margin-top: 1.2rem; font-size: 0.78rem; color: var(--ink-faint); 
 .sheet-case .c-v { font-family: var(--sans); font-size: 11pt; color: var(--ink); border-bottom: 1px solid var(--rule-strong); padding-bottom: 2pt; min-height: 14pt; }
 
 .sheet-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 18pt; align-items: start; }
-.sheet-block h3 { font-family: var(--sans); font-size: 8pt; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-faint); margin: 0 0 6pt; border-bottom: 1px solid var(--rule); padding-bottom: 3pt; }
+.sheet-block h3 { font-family: var(--sans); font-size: 8pt; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-faint); margin: 0 0 6pt; border-bottom: 1px solid var(--rule); padding-bottom: 3pt; line-height: 1.3; }
+/* Reserve two lines of heading height so both columns' tables start at the
+   same y even when one heading wraps and the other does not. */
+.sheet-cols .sheet-block h3 { min-height: 24pt; display: flex; align-items: flex-end; }
 .sheet-dl { display: grid; grid-template-columns: auto 1fr; gap: 4pt 12pt; font-size: 9.5pt; margin: 0; }
 .sheet-dl dt { color: var(--ink-soft); }
 .sheet-dl dd { margin: 0; font-family: var(--mono); font-variant-numeric: tabular-nums; text-align: right; color: var(--ink); }
@@ -309,6 +332,8 @@ footer .meta { margin-top: 1.2rem; font-size: 0.78rem; color: var(--ink-faint); 
 .sheet-table th { font-family: var(--sans); font-size: 7.5pt; text-transform: uppercase; color: var(--ink-faint); }
 .sheet-table th:first-child, .sheet-table td:first-child { text-align: left; }
 .sheet-table tr.ideal td { font-weight: 700; background: var(--paper-2); }
+/* Inputs table: label column in the sans face (not tabular mono) */
+.sheet-io td:first-child { font-family: var(--sans); }
 
 .sheet-foot { margin-top: 14pt; padding-top: 8pt; border-top: 1px solid var(--rule); font-size: 7pt; line-height: 1.4; color: var(--ink-faint); }
 .sheet-foot .cite-line { font-size: 7.5pt; color: var(--ink-soft); margin-bottom: 4pt; }

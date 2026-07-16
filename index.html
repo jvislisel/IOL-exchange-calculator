@@ -104,11 +104,15 @@
           </div>
           <div class="field">
             <label for="target">Target refraction <span class="unit">D SE</span></label>
-            <input class="input" id="target" inputmode="decimal" autocomplete="off" value="0.00" />
+            <input class="input" id="target" inputmode="decimal" autocomplete="off" placeholder="e.g. 0.00" />
           </div>
-          <div class="field-note">Target is the intended postoperative spherical equivalent. Use 0.00 for plano; a negative value for planned myopia.</div>
+          <div class="field-note">Target is the intended postoperative spherical equivalent. Enter 0.00 for plano; a negative value for planned myopia.</div>
         </div>
       </fieldset>
+
+      <div class="form-actions no-print">
+        <button type="button" class="btn" id="reset-btn">Reset all fields</button>
+      </div>
     </form>
 
     <!-- ================= RESULT ================= -->
