@@ -26,7 +26,7 @@ const els = {
   methodAuto: $("method-auto"), methodManual: $("method-manual"), methodHint: $("method-hint"),
   mCurPower: $("m-cur-power"), mB: $("m-b"),
   mP1: $("m-p1"), mC1: $("m-c1"), mP2: $("m-p2"), mC2: $("m-c2"),
-  target: $("target"),
+  target: $("target"), targetTag: $("target-tag"),
   resultBody: $("result-body"),
   printSheet: $("print-sheet"),
   resetBtn: $("reset-btn"),
@@ -42,15 +42,20 @@ const METHOD_HINTS = {
 
 // ---- helpers ----------------------------------------------------------------
 
-/** Parse a numeric field. Returns {value, ok, empty}. */
+/**
+ * Parse a numeric field. Returns {value, ok, empty}.
+ * A partially-typed number that is not yet parseable but is a valid prefix of one
+ * (a lone sign or decimal point: "", "+", "-", ".", "+.", "-.") is treated as
+ * empty/incomplete, so no "check your input" flag appears mid-typing.
+ */
 function num(el) {
-  const raw = (el.value || "").trim();
-  if (raw === "") return { value: null, ok: false, empty: true };
-  const v = Number(raw.replace(",", "."));
+  const raw = (el.value || "").trim().replace(",", ".");
+  if (raw === "" || /^[+-]?\.?$/.test(raw)) return { value: null, ok: false, empty: true };
+  const v = Number(raw);
   return { value: v, ok: Number.isFinite(v), empty: false };
 }
 
-/** Format a signed refraction / power to fixed 2 dp with an explicit + sign. */
+/** Format a signed value to fixed 2 dp with an explicit + sign for positives. */
 function signed(v, dp = 2) {
   const s = v.toFixed(dp);
   return v > 0 ? `+${s}` : s;
@@ -335,7 +340,7 @@ function renderResult(data) {
     </div>
     <div class="metrics">
       <div class="metric">
-        <div class="k">Observed error, original IOL</div>
+        <div class="k">Observed error, <span class="nowrap">original IOL</span></div>
         <div class="v">${signed(pe)} D</div>
       </div>
       <div class="metric">
@@ -396,9 +401,9 @@ function buildPrintSheet(data, res) {
       <tr><td>Method</td><td>Holladay 1 from printout</td></tr>
       ${m.curPower != null ? `<tr><td>Original IOL power</td><td>${m.curPower.toFixed(2)} D</td></tr>` : ""}
       <tr><td>MR with original IOL (SE)</td><td>${signed(measuredSE)} D</td></tr>
-      <tr><td>Original IOL prediction (b)</td><td>${signed(m.b)} D</td></tr>
-      <tr><td>New IOL ${m.p1.toFixed(2)} D prediction (c)</td><td>${signed(m.c1)} D</td></tr>
-      <tr><td>New IOL ${m.p2.toFixed(2)} D prediction (c)</td><td>${signed(m.c2)} D</td></tr>
+      <tr><td>Original IOL predicted SE (b)</td><td>${signed(m.b)} D</td></tr>
+      <tr><td>New IOL ${m.p1.toFixed(2)} D predicted SE (c)</td><td>${signed(m.c1)} D</td></tr>
+      <tr><td>New IOL ${m.p2.toFixed(2)} D predicted SE (c)</td><td>${signed(m.c2)} D</td></tr>
       <tr><td>Target refraction</td><td>${signed(target)} D</td></tr>`;
   }
 
@@ -462,6 +467,23 @@ function updateDerived(data) {
   els.kDerived.textContent = meanK != null ? `Mean K = ${meanK.toFixed(2)} D` : "";
 }
 
+/** Color-coded flag behind the Target refraction label. */
+function updateTargetTag(data) {
+  const tag = els.targetTag;
+  const v = data.target;
+  if (v == null) { tag.className = "target-tag"; tag.textContent = ""; return; }
+  const [cls, txt] = v < 0 ? ["myopic", "myopic"] : v > 0 ? ["hyperopic", "hyperopic"] : ["plano", "plano"];
+  tag.className = `target-tag show ${cls}`;
+  tag.textContent = txt;
+}
+
+/** On blur, standardize a numeric field: signed, two decimals. */
+function formatNumericField(el) {
+  if (el.readOnly || el.disabled || el.getAttribute("inputmode") !== "decimal") return;
+  const parsed = num(el);
+  if (parsed.ok) el.value = signed(parsed.value);
+}
+
 function updateBarrettMap(data) {
   const { raw, measuredSE } = data;
   const set = (key, text) => {
@@ -493,6 +515,7 @@ function updateBarrettMap(data) {
 function recompute() {
   const data = readInputs();
   updateDerived(data);
+  updateTargetTag(data);
   updateBarrettMap(data);
 
   if (!data.anyStarted) {
@@ -569,6 +592,9 @@ function setTab(name) {
 // ---- wire up ----------------------------------------------------------------
 
 els.form.addEventListener("input", recompute);
+els.form.addEventListener("focusout", (e) => {
+  if (e.target && e.target.matches("input.input")) formatNumericField(e.target);
+});
 els.modeSphCyl.addEventListener("click", () => setSeMode("sphcyl"));
 els.modeSe.addEventListener("click", () => setSeMode("se"));
 els.methodAuto.addEventListener("click", () => setCalcMethod("auto"));
