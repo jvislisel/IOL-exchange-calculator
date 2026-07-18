@@ -40,38 +40,13 @@
         </div>
       </fieldset>
 
-      <fieldset>
-        <legend>Pre-exchange biometry</legend>
-        <div class="field-row">
-          <div class="field full">
-            <label for="al">Axial length <span class="unit">mm</span></label>
-            <input class="input" id="al" inputmode="decimal" autocomplete="off" placeholder="e.g. 24.03" />
-          </div>
-          <div class="field">
-            <label for="k1">Keratometry K1 <span class="unit">D</span></label>
-            <input class="input" id="k1" inputmode="decimal" autocomplete="off" placeholder="e.g. 43.50" data-k />
-          </div>
-          <div class="field">
-            <label for="k2">Keratometry K2 <span class="unit">D</span></label>
-            <input class="input" id="k2" inputmode="decimal" autocomplete="off" placeholder="e.g. 44.25" data-k />
-          </div>
-          <div class="field-note" id="k-derived"></div>
-        </div>
-      </fieldset>
-
-      <fieldset>
-        <legend>Original (explanted) IOL</legend>
-        <div class="field-row">
-          <div class="field">
-            <label for="orig-power">IOL power <span class="unit">D</span></label>
-            <input class="input" id="orig-power" inputmode="decimal" autocomplete="off" placeholder="e.g. 21.00" />
-          </div>
-          <div class="field">
-            <label for="orig-a">A-constant</label>
-            <input class="input" id="orig-a" inputmode="decimal" autocomplete="off" placeholder="e.g. 119.00" />
-          </div>
-        </div>
-      </fieldset>
+      <div class="method-toggle no-print">
+        <span class="seg" id="calc-method" role="group" aria-label="Calculation method">
+          <button type="button" id="method-auto" aria-pressed="true">Compute from biometry</button>
+          <button type="button" id="method-manual" aria-pressed="false">Enter from printout</button>
+        </span>
+        <p class="method-hint" id="method-hint"></p>
+      </div>
 
       <fieldset>
         <legend>Manifest refraction with the original IOL</legend>
@@ -95,18 +70,97 @@
         </div>
       </fieldset>
 
-      <fieldset>
-        <legend>New IOL &amp; target</legend>
+      <!-- ===== AUTO mode: compute Holladay 1 from biometry ===== -->
+      <fieldset class="auto-only">
+        <legend>Pre-exchange biometry</legend>
+        <div class="field-row">
+          <div class="field full">
+            <label for="al">Axial length <span class="unit">mm</span></label>
+            <input class="input" id="al" inputmode="decimal" autocomplete="off" placeholder="e.g. 24.03" />
+          </div>
+          <div class="field">
+            <label for="k1">Keratometry K1 <span class="unit">D</span></label>
+            <input class="input" id="k1" inputmode="decimal" autocomplete="off" placeholder="e.g. 43.50" data-k />
+          </div>
+          <div class="field">
+            <label for="k2">Keratometry K2 <span class="unit">D</span></label>
+            <input class="input" id="k2" inputmode="decimal" autocomplete="off" placeholder="e.g. 44.25" data-k />
+          </div>
+          <div class="field-note" id="k-derived"></div>
+        </div>
+      </fieldset>
+
+      <fieldset class="auto-only">
+        <legend>Original (explanted) IOL</legend>
         <div class="field-row">
           <div class="field">
+            <label for="orig-power">IOL power <span class="unit">D</span></label>
+            <input class="input" id="orig-power" inputmode="decimal" autocomplete="off" placeholder="e.g. 21.00" />
+          </div>
+          <div class="field">
+            <label for="orig-a">A-constant</label>
+            <input class="input" id="orig-a" inputmode="decimal" autocomplete="off" placeholder="e.g. 119.00" />
+          </div>
+        </div>
+      </fieldset>
+
+      <fieldset class="auto-only">
+        <legend>New IOL</legend>
+        <div class="field-row">
+          <div class="field full">
             <label for="new-a">New IOL A-constant</label>
             <input class="input" id="new-a" inputmode="decimal" autocomplete="off" placeholder="e.g. 119.00" />
           </div>
+        </div>
+      </fieldset>
+
+      <!-- ===== MANUAL mode: enter Holladay 1 predictions from the printout ===== -->
+      <fieldset class="manual-only">
+        <legend>Original IOL <span class="legend-note">from your biometry printout</span></legend>
+        <div class="field-row">
           <div class="field">
+            <label for="m-cur-power">IOL power <span class="unit">D</span></label>
+            <input class="input" id="m-cur-power" inputmode="decimal" autocomplete="off" placeholder="e.g. 21.00" />
+          </div>
+          <div class="field">
+            <label for="m-b"><span>Predicted refraction (<em>b</em>)</span> <span class="unit">D</span></label>
+            <input class="input" id="m-b" inputmode="decimal" autocomplete="off" placeholder="Holladay 1, e.g. -0.30" />
+          </div>
+          <div class="field-note">Enter the Holladay&nbsp;1 predicted refraction shown on the printout for the IOL <em>currently in the eye</em> (value <em>b</em>).</div>
+        </div>
+      </fieldset>
+
+      <fieldset class="manual-only">
+        <legend>New IOL candidates <span class="legend-note">two powers 0.5 D apart</span></legend>
+        <div class="field-row">
+          <div class="field">
+            <label for="m-p1">IOL power 1 <span class="unit">D</span></label>
+            <input class="input" id="m-p1" inputmode="decimal" autocomplete="off" placeholder="e.g. 20.50" />
+          </div>
+          <div class="field">
+            <label for="m-c1"><span>Predicted refr. 1 (<em>c</em>)</span> <span class="unit">D</span></label>
+            <input class="input" id="m-c1" inputmode="decimal" autocomplete="off" placeholder="Holladay 1" />
+          </div>
+          <div class="field">
+            <label for="m-p2">IOL power 2 <span class="unit">D</span></label>
+            <input class="input" id="m-p2" inputmode="decimal" autocomplete="off" placeholder="e.g. 21.00" />
+          </div>
+          <div class="field">
+            <label for="m-c2"><span>Predicted refr. 2 (<em>c</em>)</span> <span class="unit">D</span></label>
+            <input class="input" id="m-c2" inputmode="decimal" autocomplete="off" placeholder="Holladay 1" />
+          </div>
+          <div class="field-note">Enter two candidate new IOL powers (0.5&nbsp;D apart) and their Holladay&nbsp;1 predicted refractions (values <em>c</em>) from the printout. The tool interpolates the rest, exactly as the authors' spreadsheet does.</div>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Target refraction</legend>
+        <div class="field-row">
+          <div class="field full">
             <label for="target">Target refraction <span class="unit">D SE</span></label>
             <input class="input" id="target" inputmode="decimal" autocomplete="off" placeholder="e.g. 0.00" />
           </div>
-          <div class="field-note">Target is the intended postoperative spherical equivalent. Enter 0.00 for plano; a negative value for planned myopia.</div>
+          <div class="field-note">Intended postoperative spherical equivalent. Enter 0.00 for plano; a negative value for planned myopia.</div>
         </div>
       </fieldset>
 
@@ -198,11 +252,12 @@
       <li><strong>In-the-bag assumption.</strong> Calculations assume in-the-bag placement. Expect a myopic shift with anterior optic capture, and a milder myopic shift with sulcus placement and posterior optic capture; adjust accordingly.</li>
       <li><strong>No prior corneal refractive surgery.</strong> The formula was validated only in eyes without a history of LASIK, PRK, or RK.</li>
       <li><strong>Single-center validation.</strong> The source study was retrospective and conducted at one center. Results should be interpreted with that in mind.</li>
-      <li><strong>Independent build.</strong> This calculator is an independent implementation of the published method and has not been verified against the authors' own tool. See the note on the methodology below.</li>
+      <li><strong>Two ways to enter data.</strong> <em>Compute from biometry</em> derives the Holladay&nbsp;1 predictions internally from the axial length, keratometry, and A-constants. <em>Enter from printout</em> takes those Holladay&nbsp;1 predictions directly from your biometer's printout, so the tool performs only the formula's arithmetic, exactly matching the authors' spreadsheet.</li>
+      <li><strong>Independent build.</strong> This calculator is an independent implementation of the published method. It is not affiliated with or endorsed by the authors.</li>
     </ul>
 
     <div class="callout" id="methodology">
-      <strong>How this implementation is verified.</strong> The Holladay&nbsp;1 engine is a from-first-principles vergence model whose constants are pinned to Holladay et&nbsp;al. (1988). It is checked by an automated test suite and cross-validated numerically against an independent, separately authored Holladay&nbsp;1 implementation, agreeing to better than 0.01&nbsp;D across the clinical range. It has not yet been validated against the study authors' own spreadsheet tool.
+      <strong>How this implementation is verified.</strong> The formula's arithmetic (<em>R</em>&nbsp;=&nbsp;(<em>a</em>&nbsp;&minus;&nbsp;<em>b</em>)&nbsp;+&nbsp;<em>c</em>) has been confirmed against the study authors' own spreadsheet tool: given identical Holladay&nbsp;1 inputs the two agree exactly, and both reproduce the paper's worked example. The built-in Holladay&nbsp;1 engine (used in <em>Compute from biometry</em> mode) is a from-first-principles vergence model with constants pinned to Holladay et&nbsp;al. (1988), checked by an automated test suite and cross-validated numerically against an independent Holladay&nbsp;1 implementation to better than 0.01&nbsp;D across the clinical range. To remove any dependence on that reimplementation, use <em>Enter from printout</em> mode and take the Holladay&nbsp;1 values from your own biometer.
     </div>
   </section>
 

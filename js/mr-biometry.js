@@ -114,6 +114,49 @@ function sphericalEquivalent(sphere, cylinder) {
   return sphere + cylinder / 2;
 }
 
+// ---------------------------------------------------------------------------
+// Manual (biometry-printout) mode.
+//
+// This mirrors the authors' Excel tool exactly: the Holladay-1 predicted
+// refractions b (current IOL) and c (new IOLs) are read from the surgeon's
+// biometer printout rather than computed here. The tool performs only the
+// validated arithmetic R = (a - b) + c, and, like the Excel, extrapolates to
+// neighbouring powers using the local slope between two entered (power,
+// prediction) points.
+// ---------------------------------------------------------------------------
+
+/** Linear (slope) interpolation of the Holladay prediction c at `power`, from
+ *  two entered points (p1,c1) and (p2,c2). Matches the Excel's method. */
+function interpolatePrediction(power, p1, c1, p2, c2) {
+  const slope = (c2 - c1) / (p2 - p1);
+  return c1 + slope * (power - p1);
+}
+
+/** Manual predicted refraction for a given new IOL power: R = a - b + c(power). */
+function manualPredictedRefraction(a, b, power, p1, c1, p2, c2) {
+  return a - b + interpolatePrediction(power, p1, c1, p2, c2);
+}
+
+/** New IOL power to hit a target refraction, from two entered prediction points.
+ *  Solve a - b + c(power) = target  =>  c(power) = target - (a - b). */
+function manualPowerForTarget(a, b, target, p1, c1, p2, c2) {
+  const slope = (c2 - c1) / (p2 - p1);
+  const cTarget = target - (a - b);
+  return { power: p1 + (cTarget - c1) / slope, pe: a - b, cTarget };
+}
+
+/** Power table (IOL-printout style) for manual mode. */
+function manualPowerTable(a, b, p1, c1, p2, c2, idealPower, step = 0.5, spanD = 1.5) {
+  const center = Math.round(idealPower / step) * step;
+  const steps = Math.round(spanD / step);
+  const rows = [];
+  for (let i = -steps; i <= steps; i++) {
+    const power = round2(center + i * step);
+    rows.push({ power, R: manualPredictedRefraction(a, b, power, p1, c1, p2, c2) });
+  }
+  return rows;
+}
+
 /** Nearest available IOL power to `power` on a `step` grid. */
 function nearestStep(power, step = 0.5) {
   return round2(Math.round(power / step) * step);
@@ -130,4 +173,8 @@ export {
   powerTable,
   sphericalEquivalent,
   nearestStep,
+  interpolatePrediction,
+  manualPredictedRefraction,
+  manualPowerForTarget,
+  manualPowerTable,
 };

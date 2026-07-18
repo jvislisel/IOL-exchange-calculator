@@ -69,12 +69,20 @@ The suite includes:
 
 ### Validation status
 
-- ✅ Cross-validated numerically against an independent Holladay 1 implementation.
-- ⏳ **Not yet** validated against the study authors' own spreadsheet tool. The paper
-  states an Excel tool is available on request from the corresponding author
-  (Douglas D. Koch, dkoch@bcm.edu). A draft request email is in `docs/validation-request-email.md`.
-  Once obtained, validate case-by-case and record results here before relying on the tool
-  clinically.
+- ✅ **Formula arithmetic confirmed against the authors' own Excel tool.** The tool's
+  core is `R = sphere + 0.5·cyl − b + c = (a − b) + c`. Given identical Holladay 1
+  inputs, this implementation matches it to 0.000 D, and both reproduce the paper's
+  worked example (25.0 D → +0.15 D). See `docs/validation-against-excel.md`.
+- ✅ Holladay 1 engine cross-validated numerically against an independent implementation
+  (<0.01 D across the clinical range).
+- Note: the authors' Excel does **not** compute Holladay 1; it takes the Holladay 1
+  predictions from the biometer printout. This tool offers both: an auto-compute mode
+  (internal Holladay 1) and an "enter from printout" mode that mirrors the Excel exactly.
+
+Two calculation modes:
+- **Compute from biometry** — enter AL, K, and A-constants; the tool computes Holladay 1.
+- **Enter from printout** — enter the Holladay 1 predicted refractions from the biometer;
+  the tool does only the validated arithmetic (no dependence on the reimplemented Holladay 1).
 
 ## Deploying to GitHub Pages (free, no login for visitors)
 

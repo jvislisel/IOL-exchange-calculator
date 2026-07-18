@@ -9,6 +9,9 @@ import {
   powerTable,
   sphericalEquivalent,
   nearestStep,
+  manualPowerForTarget,
+  manualPredictedRefraction,
+  manualPowerTable,
 } from "./mr-biometry.js";
 
 const $ = (id) => document.getElementById(id);
@@ -16,17 +19,26 @@ const els = {
   form: $("calc-form"),
   surgeon: $("surgeon"), patient: $("patient"), patientId: $("patient-id"),
   al: $("al"), k1: $("k1"), k2: $("k2"), kDerived: $("k-derived"),
-  origPower: $("orig-power"), origA: $("orig-a"),
+  origPower: $("orig-power"), origA: $("orig-a"), newA: $("new-a"),
   mrSph: $("mr-sph"), mrCyl: $("mr-cyl"), mrSe: $("mr-se"),
   mrSphWrap: $("mr-sph-wrap"), mrCylWrap: $("mr-cyl-wrap"),
   modeSphCyl: $("mode-sphcyl"), modeSe: $("mode-se"),
-  newA: $("new-a"), target: $("target"),
+  methodAuto: $("method-auto"), methodManual: $("method-manual"), methodHint: $("method-hint"),
+  mCurPower: $("m-cur-power"), mB: $("m-b"),
+  mP1: $("m-p1"), mC1: $("m-c1"), mP2: $("m-p2"), mC2: $("m-c2"),
+  target: $("target"),
   resultBody: $("result-body"),
   printSheet: $("print-sheet"),
   resetBtn: $("reset-btn"),
 };
 
 let seMode = "sphcyl"; // or "se"
+let calcMethod = "auto"; // or "manual"
+
+const METHOD_HINTS = {
+  auto: "Enter the biometry and A-constants; the tool computes the Holladay&nbsp;1 predictions and the recommended power. Convenient, and independently validated to better than 0.01&nbsp;D.",
+  manual: "Enter the Holladay&nbsp;1 predicted refractions from your biometry printout. The tool does only the a&nbsp;&minus;&nbsp;b&nbsp;+&nbsp;c arithmetic, exactly matching the authors' spreadsheet with no reliance on a reimplemented Holladay&nbsp;1.",
+};
 
 // ---- helpers ----------------------------------------------------------------
 
@@ -98,31 +110,26 @@ function setFieldWarn(el, msg) {
  * Gather inputs into a structured object with per-field validation.
  * Returns { ok, errors:[], eye, originalIol, newIol, measuredSE, target }.
  */
-function readInputs() {
-  const errors = [];
-  const warnings = [];
-  const allFields = [els.al, els.k1, els.k2, els.origPower, els.origA, els.mrSph, els.mrCyl, els.mrSe, els.newA, els.target];
-  allFields.forEach((e) => { setInvalid(e, false); setFieldWarn(e, null); });
+const ALL_INPUT_FIELDS = () => [
+  els.al, els.k1, els.k2, els.origPower, els.origA, els.newA,
+  els.mrSph, els.mrCyl, els.mrSe, els.target,
+  els.mCurPower, els.mB, els.mP1, els.mC1, els.mP2, els.mC2,
+];
 
-  // Axial length
-  const al = num(els.al);
-  // Keratometry
-  const k1 = num(els.k1), k2 = num(els.k2);
-  // Original IOL
-  const op = num(els.origPower), oa = num(els.origA);
-  // New IOL + target
-  const na = num(els.newA), tg = num(els.target);
+const rangeUnit = (field) => (RANGES[field].unit ? " " + RANGES[field].unit : "");
 
-  // Manifest refraction -> SE
+/** Shared manifest-refraction parsing -> spherical equivalent (a). */
+function parseMR(errors) {
   let measuredSE = null, seOk = false;
   if (seMode === "se") {
     const se = num(els.mrSe);
-    if (!se.empty) { measuredSE = se.value; seOk = se.ok; if (!se.ok) { errors.push("Spherical equivalent must be a number."); setInvalid(els.mrSe, true); } }
+    if (!se.empty) {
+      measuredSE = se.value; seOk = se.ok;
+      if (!se.ok) { errors.push("Spherical equivalent must be a number."); setInvalid(els.mrSe, true); }
+    }
   } else {
     const sph = num(els.mrSph), cyl = num(els.mrCyl);
     if (!sph.empty || !cyl.empty) {
-      const sv = sph.empty ? 0 : sph.value;
-      const cv = cyl.empty ? 0 : cyl.value;
       if ((!sph.empty && !sph.ok) || (!cyl.empty && !cyl.ok)) {
         errors.push("Sphere and cylinder must be numbers.");
         if (!sph.ok && !sph.empty) setInvalid(els.mrSph, true);
@@ -130,75 +137,142 @@ function readInputs() {
       } else if (sph.empty) {
         errors.push("Enter the sphere of the manifest refraction.");
       } else {
-        measuredSE = sphericalEquivalent(sv, cv);
+        measuredSE = sphericalEquivalent(sph.value, cyl.empty ? 0 : cyl.value);
         seOk = true;
       }
     }
-    // Reflect the computed SE into the read-only SE field for display.
     els.mrSe.value = measuredSE == null ? "" : signed(measuredSE);
   }
+  return { measuredSE, seOk };
+}
 
-  // Required-field presence (only complain once user has started).
+/** Check one numeric field for hard-range errors and typical-range warnings. */
+function checkField(f, el, field, label, errors, warnings) {
+  if (f.empty || !f.ok) return;
+  const err = rangeError(field, f.value);
+  if (err) { errors.push(err); setInvalid(el, true); return; }
+  const w = typicalWarn(field, f.value);
+  if (w) { setFieldWarn(el, w); warnings.push(`${label} ${f.value}${rangeUnit(field)}`); }
+}
+
+function readInputs() {
+  const errors = [];
+  const warnings = [];
+  ALL_INPUT_FIELDS().forEach((e) => { setInvalid(e, false); setFieldWarn(e, null); });
+
+  const { measuredSE, seOk } = parseMR(errors);
+  const tg = num(els.target);
+  const base = { errors, warnings, method: calcMethod, measuredSE, target: tg.ok ? tg.value : null };
+
+  if (calcMethod === "auto") return readAuto(base, measuredSE, seOk, tg);
+  return readManual(base, measuredSE, seOk, tg);
+}
+
+function readAuto(base, measuredSE, seOk, tg) {
+  const { errors, warnings } = base;
+  const al = num(els.al), k1 = num(els.k1), k2 = num(els.k2);
+  const op = num(els.origPower), oa = num(els.origA), na = num(els.newA);
+
   const required = [
-    [al, els.al, "axialLength", "Axial length"],
-    [k1, els.k1, "meanK", "Keratometry K1"],
-    [k2, els.k2, "meanK", "Keratometry K2"],
-    [op, els.origPower, "iolPower", "Original IOL power"],
-    [oa, els.origA, "aConstant", "Original A-constant"],
-    [na, els.newA, "aConstant", "New IOL A-constant"],
-    [tg, els.target, "targetRefraction", "Target refraction"],
+    [al, els.al, "Axial length"], [k1, els.k1, "Keratometry K1"], [k2, els.k2, "Keratometry K2"],
+    [op, els.origPower, "Original IOL power"], [oa, els.origA, "Original A-constant"],
+    [na, els.newA, "New IOL A-constant"], [tg, els.target, "Target refraction"],
   ];
-
-  const anyStarted =
-    [al, k1, k2, op, oa, na].some((f) => !f.empty) || seOk;
-
-  let allPresent = true;
-  for (const [f, el, , label] of required) {
+  const anyStarted = [al, k1, k2, op, oa, na].some((f) => !f.empty) || seOk;
+  let allPresent = measuredSE !== null;
+  for (const [f, el, label] of required) {
     if (f.empty) { allPresent = false; continue; }
     if (!f.ok) { errors.push(`${label} must be a number.`); setInvalid(el, true); }
   }
-  if (measuredSE === null) allPresent = false;
 
-  // Range checks on present, numeric fields.
-  const meanK = k1.ok && k2.ok ? (k1.value + k2.value) / 2 : null;
-  const rangeChecks = [
-    [al, els.al, "axialLength"],
-    [op, els.origPower, "iolPower"],
-    [oa, els.origA, "aConstant"],
-    [na, els.newA, "aConstant"],
-    [tg, els.target, "targetRefraction"],
-  ];
-  const unit = (field) => (RANGES[field].unit ? " " + RANGES[field].unit : "");
-  for (const [f, el, field] of rangeChecks) {
-    if (f.empty || !f.ok) continue;
-    const err = rangeError(field, f.value);
-    if (err) { errors.push(err); setInvalid(el, true); continue; }
-    if (typicalWarn(field, f.value)) {
-      setFieldWarn(el, typicalWarn(field, f.value));
-      warnings.push(`${RANGES[field].label} ${f.value}${unit(field)}`);
-    }
-  }
+  checkField(al, els.al, "axialLength", "Axial length", errors, warnings);
+  checkField(op, els.origPower, "iolPower", "Original IOL power", errors, warnings);
+  checkField(oa, els.origA, "aConstant", "Original A-constant", errors, warnings);
+  checkField(na, els.newA, "aConstant", "New IOL A-constant", errors, warnings);
+  checkField(tg, els.target, "targetRefraction", "Target refraction", errors, warnings);
   for (const [f, el, lbl] of [[k1, els.k1, "K1"], [k2, els.k2, "K2"]]) {
     if (f.empty || !f.ok) continue;
     const err = rangeError("meanK", f.value);
     if (err) { errors.push(err); setInvalid(el, true); continue; }
-    if (typicalWarn("meanK", f.value)) {
-      setFieldWarn(el, typicalWarn("meanK", f.value));
-      warnings.push(`Keratometry ${lbl} ${f.value} D`);
+    const w = typicalWarn("meanK", f.value);
+    if (w) { setFieldWarn(el, w); warnings.push(`Keratometry ${lbl} ${f.value} D`); }
+  }
+
+  const meanK = k1.ok && k2.ok ? (k1.value + k2.value) / 2 : null;
+  const ok = anyStarted && allPresent && errors.length === 0;
+  return {
+    ...base, ok, anyStarted, errors: [...new Set(errors)], meanK,
+    eye: ok ? { axialLength: al.value, k1: k1.value, k2: k2.value } : null,
+    originalIol: ok ? { power: op.value, aConstant: oa.value } : null,
+    newIol: ok ? { aConstant: na.value } : null,
+    raw: { al, k1, k2, op, oa, na, tg },
+  };
+}
+
+function readManual(base, measuredSE, seOk, tg) {
+  const { errors, warnings } = base;
+  const cur = num(els.mCurPower); // optional (for the sheet)
+  const b = num(els.mB), p1 = num(els.mP1), c1 = num(els.mC1), p2 = num(els.mP2), c2 = num(els.mC2);
+
+  const required = [
+    [b, els.mB, "Current IOL predicted refraction"],
+    [p1, els.mP1, "IOL power 1"], [c1, els.mC1, "Predicted refraction 1"],
+    [p2, els.mP2, "IOL power 2"], [c2, els.mC2, "Predicted refraction 2"],
+    [tg, els.target, "Target refraction"],
+  ];
+  const anyStarted = [cur, b, p1, c1, p2, c2].some((f) => !f.empty) || seOk;
+  let allPresent = measuredSE !== null;
+  for (const [f, el, label] of required) {
+    if (f.empty) { allPresent = false; continue; }
+    if (!f.ok) { errors.push(`${label} must be a number.`); setInvalid(el, true); }
+  }
+
+  // Ranges/warnings: powers use iolPower bounds, predictions & target use refraction bounds.
+  checkField(cur, els.mCurPower, "iolPower", "Original IOL power", errors, warnings);
+  checkField(p1, els.mP1, "iolPower", "IOL power 1", errors, warnings);
+  checkField(p2, els.mP2, "iolPower", "IOL power 2", errors, warnings);
+  for (const [f, el, label] of [[b, els.mB, "Current IOL predicted refraction"], [c1, els.mC1, "Predicted refraction 1"], [c2, els.mC2, "Predicted refraction 2"]]) {
+    if (f.empty || !f.ok) continue;
+    const err = rangeError("targetRefraction", f.value);
+    if (err) { errors.push(`${label} looks out of range (${f.value} D).`); setInvalid(el, true); }
+  }
+  checkField(tg, els.target, "targetRefraction", "Target refraction", errors, warnings);
+
+  // Two IOL powers must differ (slope) and are expected 0.5 D apart.
+  if (p1.ok && p2.ok) {
+    if (p1.value === p2.value) {
+      errors.push("The two IOL powers must be different.");
+      setInvalid(els.mP1, true); setInvalid(els.mP2, true);
+    } else if (Math.abs(Math.abs(p1.value - p2.value) - 0.5) > 1e-9) {
+      setFieldWarn(els.mP2, "Expected 0.5 D apart — please verify");
+      warnings.push("The two IOL powers are not 0.5 D apart");
     }
   }
 
   const ok = anyStarted && allPresent && errors.length === 0;
   return {
-    ok, anyStarted, errors: [...new Set(errors)], warnings,
-    meanK,
-    eye: ok ? { axialLength: al.value, k1: k1.value, k2: k2.value } : null,
-    originalIol: ok ? { power: op.value, aConstant: oa.value } : null,
-    newIol: ok ? { aConstant: na.value } : null,
-    measuredSE,
-    target: tg.ok ? tg.value : null,
-    raw: { al, k1, k2, op, oa, na, tg },
+    ...base, ok, anyStarted, errors: [...new Set(errors)], meanK: null,
+    manual: ok ? { a: measuredSE, b: b.value, p1: p1.value, c1: c1.value, p2: p2.value, c2: c2.value, curPower: cur.ok ? cur.value : null } : null,
+    raw: { cur, b, p1, c1, p2, c2, tg },
   };
+}
+
+/** Compute the unified result (both methods produce the same shape). */
+function computeResult(data) {
+  if (data.method === "auto") {
+    const { eye, originalIol, newIol, measuredSE, target } = data;
+    const { power, pe } = newIolPowerForTarget(eye, originalIol, measuredSE, newIol, target);
+    const nearest = nearestStep(power, 0.5);
+    const atNearestR = predictedRefractionForNewPower(eye, originalIol, measuredSE, newIol, nearest).R;
+    const rows = powerTable(eye, originalIol, measuredSE, newIol, power, 0.5, 1.5);
+    return { power, pe, nearest, atNearestR, rows };
+  }
+  const { a, b, p1, c1, p2, c2 } = data.manual;
+  const { power, pe } = manualPowerForTarget(a, b, data.target, p1, c1, p2, c2);
+  const nearest = nearestStep(power, 0.5);
+  const atNearestR = manualPredictedRefraction(a, b, nearest, p1, c1, p2, c2);
+  const rows = manualPowerTable(a, b, p1, c1, p2, c2, power, 0.5, 1.5);
+  return { power, pe, nearest, atNearestR, rows };
 }
 
 // ---- rendering --------------------------------------------------------------
@@ -210,8 +284,11 @@ function refractionClass(v) {
 }
 
 function renderEmpty() {
-  els.resultBody.innerHTML =
-    '<div class="result-empty">Enter the biometry, the original IOL, and the manifest refraction to see the recommended power.</div>';
+  const msg =
+    calcMethod === "auto"
+      ? "Enter the manifest refraction, biometry, and the original and new IOLs to see the recommended power."
+      : "Enter the manifest refraction and the Holladay 1 predictions from your printout to see the recommended power.";
+  els.resultBody.innerHTML = `<div class="result-empty">${msg}</div>`;
 }
 
 function renderErrors(errors) {
@@ -225,11 +302,8 @@ function renderErrors(errors) {
 }
 
 function renderResult(data) {
-  const { eye, originalIol, newIol, measuredSE, target } = data;
-  const { power, pe } = newIolPowerForTarget(eye, originalIol, measuredSE, newIol, target);
-  const nearest = nearestStep(power, 0.5);
-  const atNearest = predictedRefractionForNewPower(eye, originalIol, measuredSE, newIol, nearest);
-  const rows = powerTable(eye, originalIol, measuredSE, newIol, power, 0.5, 1.5);
+  const res = computeResult(data);
+  const { power, pe, nearest, atNearestR, rows } = res;
 
   const tableRows = rows
     .map((r) => {
@@ -256,7 +330,7 @@ function renderResult(data) {
       <div class="exact">
         nearest 0.5 D step<br>
         exact solution <b>${signed(power).replace("+", "")} D</b><br>
-        predicts <b>${signed(atNearest.R)} D</b> at ${nearest.toFixed(1)} D
+        predicts <b>${signed(atNearestR)} D</b> at ${nearest.toFixed(1)} D
       </div>
     </div>
     <div class="metrics">
@@ -266,7 +340,7 @@ function renderResult(data) {
       </div>
       <div class="metric">
         <div class="k">Target refraction</div>
-        <div class="v">${signed(target)} D</div>
+        <div class="v">${signed(data.target)} D</div>
       </div>
     </div>
     <div class="ptable">
@@ -283,15 +357,15 @@ function renderResult(data) {
   const printBtn = $("print-btn");
   if (printBtn)
     printBtn.addEventListener("click", () => {
-      buildPrintSheet(data, { power, nearest, atNearest, pe, rows });
+      buildPrintSheet(data, res);
       window.print();
     });
 }
 
 /** Build the dedicated one-page planning sheet from the current result. */
 function buildPrintSheet(data, res) {
-  const { eye, originalIol, newIol, measuredSE, target, meanK } = data;
-  const { power, nearest, atNearest, pe, rows } = res;
+  const { measuredSE, target } = data;
+  const { power, nearest, atNearestR, pe, rows } = res;
   const today = new Date().toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
   const caseVal = (el) => escapeHtml((el.value || "").trim()) || "&nbsp;";
 
@@ -301,6 +375,32 @@ function buildPrintSheet(data, res) {
       return `<tr class="${isIdeal ? "ideal" : ""}"><td>${r.power.toFixed(2)} D</td><td>${signed(r.R)} D</td></tr>`;
     })
     .join("");
+
+  // Method-specific input rows.
+  let inputRows;
+  if (data.method === "auto") {
+    const { eye, originalIol, newIol, meanK } = data;
+    inputRows = `
+      <tr><td>Method</td><td>Computed from biometry</td></tr>
+      <tr><td>Axial length</td><td>${eye.axialLength.toFixed(2)} mm</td></tr>
+      <tr><td>Keratometry K1 / K2</td><td>${eye.k1.toFixed(2)} / ${eye.k2.toFixed(2)} D</td></tr>
+      <tr><td>Mean K</td><td>${meanK.toFixed(2)} D</td></tr>
+      <tr><td>Original IOL power</td><td>${originalIol.power.toFixed(2)} D</td></tr>
+      <tr><td>Original A-constant</td><td>${originalIol.aConstant.toFixed(2)}</td></tr>
+      <tr><td>MR with original IOL (SE)</td><td>${signed(measuredSE)} D</td></tr>
+      <tr><td>New IOL A-constant</td><td>${newIol.aConstant.toFixed(2)}</td></tr>
+      <tr><td>Target refraction</td><td>${signed(target)} D</td></tr>`;
+  } else {
+    const m = data.manual;
+    inputRows = `
+      <tr><td>Method</td><td>Holladay 1 from printout</td></tr>
+      ${m.curPower != null ? `<tr><td>Original IOL power</td><td>${m.curPower.toFixed(2)} D</td></tr>` : ""}
+      <tr><td>MR with original IOL (SE)</td><td>${signed(measuredSE)} D</td></tr>
+      <tr><td>Original IOL prediction (b)</td><td>${signed(m.b)} D</td></tr>
+      <tr><td>New IOL ${m.p1.toFixed(2)} D prediction (c)</td><td>${signed(m.c1)} D</td></tr>
+      <tr><td>New IOL ${m.p2.toFixed(2)} D prediction (c)</td><td>${signed(m.c2)} D</td></tr>
+      <tr><td>Target refraction</td><td>${signed(target)} D</td></tr>`;
+  }
 
   els.printSheet.innerHTML = `
     <div class="sheet">
@@ -323,7 +423,7 @@ function buildPrintSheet(data, res) {
         <div class="sheet-result">
           <div class="rec-k">Nearest available power (0.5 D steps)</div>
           <div class="rec-v">${nearest.toFixed(1)} D</div>
-          <div class="rec-sub">Exact solution ${signed(power).replace("+", "")} D &middot; predicts ${signed(atNearest.R)} D at ${nearest.toFixed(1)} D<br>Observed error of original IOL (a &minus; b): ${signed(pe)} D &middot; target ${signed(target)} D</div>
+          <div class="rec-sub">Exact solution ${signed(power).replace("+", "")} D &middot; predicts ${signed(atNearestR)} D at ${nearest.toFixed(1)} D<br>Observed error of original IOL (a &minus; b): ${signed(pe)} D &middot; target ${signed(target)} D</div>
         </div>
       </div>
 
@@ -332,16 +432,7 @@ function buildPrintSheet(data, res) {
           <h3>Inputs</h3>
           <table class="sheet-table sheet-io">
             <thead><tr><th>Measurement</th><th>Value</th></tr></thead>
-            <tbody>
-              <tr><td>Axial length</td><td>${eye.axialLength.toFixed(2)} mm</td></tr>
-              <tr><td>Keratometry K1 / K2</td><td>${eye.k1.toFixed(2)} / ${eye.k2.toFixed(2)} D</td></tr>
-              <tr><td>Mean K</td><td>${meanK.toFixed(2)} D</td></tr>
-              <tr><td>Original IOL power</td><td>${originalIol.power.toFixed(2)} D</td></tr>
-              <tr><td>Original A-constant</td><td>${originalIol.aConstant.toFixed(2)}</td></tr>
-              <tr><td>MR with original IOL (SE)</td><td>${signed(measuredSE)} D</td></tr>
-              <tr><td>New IOL A-constant</td><td>${newIol.aConstant.toFixed(2)}</td></tr>
-              <tr><td>Target refraction</td><td>${signed(target)} D</td></tr>
-            </tbody>
+            <tbody>${inputRows}</tbody>
           </table>
         </div>
         <div class="sheet-block">
@@ -372,19 +463,29 @@ function updateDerived(data) {
 }
 
 function updateBarrettMap(data) {
-  const { raw, meanK, measuredSE } = data;
+  const { raw, measuredSE } = data;
   const set = (key, text) => {
     const el = document.querySelector(`[data-map="${key}"]`);
     if (el) el.textContent = text;
   };
   const v = (f, unit = "") => (f && !f.empty && f.ok ? `${f.value}${unit}` : "—");
-  set("al", v(raw.al, " mm"));
-  set("k", raw.k1.ok && raw.k2.ok ? `${raw.k1.value} / ${raw.k2.value} D` : "—");
-  set("origp", v(raw.op, " D"));
-  set("origa", v(raw.oa));
   set("mr", measuredSE != null ? `${signed(measuredSE)} D (SE)` : "—");
-  set("newa", v(raw.na));
   set("target", raw.tg.ok ? `${signed(raw.tg.value)} D` : "—");
+  if (data.method === "auto") {
+    set("al", v(raw.al, " mm"));
+    set("k", raw.k1.ok && raw.k2.ok ? `${raw.k1.value} / ${raw.k2.value} D` : "—");
+    set("origp", v(raw.op, " D"));
+    set("origa", v(raw.oa));
+    set("newa", v(raw.na));
+  } else {
+    // Manual mode does not collect biometry / A-constants; the surgeon has them
+    // on the same printout they used for the Holladay predictions.
+    set("al", "from printout");
+    set("k", "from printout");
+    set("origp", v(raw.cur, " D"));
+    set("origa", "from printout");
+    set("newa", "from printout");
+  }
 }
 
 // ---- main recompute ---------------------------------------------------------
@@ -428,11 +529,24 @@ function setSeMode(mode) {
   recompute();
 }
 
-/** Clear every field and return to the default sphere/cylinder entry mode. */
+// ---- calculation-method toggle ---------------------------------------------
+
+function setCalcMethod(method) {
+  calcMethod = method;
+  const auto = method === "auto";
+  els.form.classList.toggle("is-auto", auto);
+  els.form.classList.toggle("is-manual", !auto);
+  els.methodAuto.setAttribute("aria-pressed", String(auto));
+  els.methodManual.setAttribute("aria-pressed", String(!auto));
+  els.methodHint.innerHTML = METHOD_HINTS[method];
+  recompute();
+}
+
+/** Clear all field values, keeping the surgeon's chosen entry modes. */
 function resetAll() {
   els.form.reset();
   els.mrSe.value = "";
-  setSeMode("sphcyl");
+  setSeMode(seMode); // re-apply current modes (form.reset clears values only) and recompute
 }
 
 // ---- wire up ----------------------------------------------------------------
@@ -440,6 +554,9 @@ function resetAll() {
 els.form.addEventListener("input", recompute);
 els.modeSphCyl.addEventListener("click", () => setSeMode("sphcyl"));
 els.modeSe.addEventListener("click", () => setSeMode("se"));
+els.methodAuto.addEventListener("click", () => setCalcMethod("auto"));
+els.methodManual.addEventListener("click", () => setCalcMethod("manual"));
 els.resetBtn.addEventListener("click", resetAll);
 
+setCalcMethod("auto"); // initialize calculation method
 setSeMode("sphcyl"); // initialize refraction-entry mode and first render

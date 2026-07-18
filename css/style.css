@@ -138,6 +138,18 @@ legend + * { clear: both; }
 .seg button[aria-pressed="true"] { background: var(--accent); color: oklch(0.99 0.01 258); }
 #mr-mode { margin-bottom: 1rem; }
 
+/* Calculation-method toggle (auto-compute vs enter-from-printout) */
+.method-toggle { border-top: 1px solid var(--rule); padding-top: 1.4rem; margin: 1.4rem 0; }
+.method-toggle + fieldset { border-top: 1px solid var(--rule); padding-top: 1.4rem; }
+#calc-method { display: flex; }
+#calc-method button { flex: 1; padding: 0.55rem 1rem; font-size: 0.85rem; }
+.method-hint { font-size: 0.8rem; color: var(--ink-faint); margin: 0.7rem 0 0; max-width: 62ch; line-height: 1.45; }
+.method-hint a { font-weight: 600; }
+
+/* Show only the active method's fields */
+.is-auto .manual-only { display: none; }
+.is-manual .auto-only { display: none; }
+
 .legend-note { font-weight: 500; text-transform: none; letter-spacing: 0; color: var(--ink-faint); font-size: 0.72rem; }
 
 /* Text (non-numeric) inputs use the sans face, not tabular mono */
