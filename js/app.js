@@ -396,7 +396,7 @@ function buildPrintSheet(data, res) {
   const tableRows = rows
     .map((r) => {
       const isIdeal = Math.abs(r.power - nearest) < 1e-9;
-      return `<tr class="${isIdeal ? "ideal" : ""}"><td>${r.power.toFixed(2)} D</td><td>${signed(r.R)} D</td></tr>`;
+      return `<tr class="${isIdeal ? "ideal" : ""}"><td>${r.power.toFixed(2)} D</td><td class="refr ${refractionClass(r.R)}">${signed(r.R)} D</td></tr>`;
     })
     .join("");
 
@@ -499,11 +499,14 @@ function updateTargetTag(data) {
   tag.textContent = txt;
 }
 
-/** On blur, standardize a numeric field: signed, two decimals. */
+// These always-positive fields are formatted to two decimals without a sign.
+const UNSIGNED_FIELDS = new Set(["al", "k1", "k2", "orig-a", "new-a"]);
+
+/** On blur, standardize a numeric field to two decimals (signed unless magnitude). */
 function formatNumericField(el) {
   if (el.readOnly || el.disabled || el.getAttribute("inputmode") !== "decimal") return;
   const parsed = num(el);
-  if (parsed.ok) el.value = signed(parsed.value);
+  if (parsed.ok) el.value = UNSIGNED_FIELDS.has(el.id) ? parsed.value.toFixed(2) : signed(parsed.value);
 }
 
 function updateBarrettMap(data) {
