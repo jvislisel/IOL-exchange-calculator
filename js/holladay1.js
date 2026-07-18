@@ -37,11 +37,14 @@ const SF_INTERCEPT = -65.6;
 
 // Hard input ranges. Out-of-range input must be rejected by callers.
 const RANGES = Object.freeze({
-  axialLength: { min: 18, max: 35, unit: "mm", label: "Axial length" },
-  meanK: { min: 30, max: 55, unit: "D", label: "Keratometry (mean K)" },
-  aConstant: { min: 110, max: 125, unit: "", label: "A-constant" },
-  iolPower: { min: -15, max: 45, unit: "D", label: "IOL power" },
-  targetRefraction: { min: -10, max: 10, unit: "D", label: "Target refraction" },
+  // Outer sanity bounds. These only reject clearly-impossible input (typos that
+  // would produce nonsense); realistic clinical extremes are allowed and instead
+  // flagged by the typical-range advisories in the UI.
+  axialLength: { min: 14, max: 40, unit: "mm", label: "Axial length" },
+  meanK: { min: 25, max: 65, unit: "D", label: "Keratometry (mean K)" },
+  aConstant: { min: 100, max: 130, unit: "", label: "A-constant" },
+  iolPower: { min: -20, max: 60, unit: "D", label: "IOL power" },
+  targetRefraction: { min: -20, max: 20, unit: "D", label: "Target refraction" },
 });
 
 /** Surgeon Factor (mm) from a manufacturer A-constant. */

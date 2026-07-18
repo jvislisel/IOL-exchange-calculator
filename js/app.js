@@ -57,10 +57,10 @@ function rangeError(field, value) {
 // outside these are accepted but flagged for the user to double-check. These are
 // UI advisories only, not part of the math engine.
 const TYPICAL = {
-  axialLength: { min: 20.5, max: 27.0 },
-  meanK: { min: 38, max: 48 },
+  axialLength: { min: 20, max: 30 },
+  meanK: { min: 34, max: 50 },
   aConstant: { min: 115, max: 122 },
-  iolPower: { min: 6, max: 34 },
+  iolPower: { min: 0, max: 34 },
   targetRefraction: { min: -3.0, max: 1.0 },
 };
 

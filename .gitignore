@@ -1,6 +1,10 @@
 # The source manuscript is copyrighted (Elsevier / AAO). Do NOT publish it.
 original-manuscript.pdf
 
+# The authors' Excel tool was shared privately by Dr. Koch. Do NOT publish it.
+*.xlsx
+*.xlsm
+
 # OS / editor cruft
 .DS_Store
 node_modules/
