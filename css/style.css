@@ -87,6 +87,29 @@ a:hover { color: var(--accent); }
 }
 .tag::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--warn); }
 
+/* ---- Tabs -------------------------------------------------------------- */
+.tabs {
+  border-bottom: 1px solid var(--rule-strong);
+  background: color-mix(in oklch, var(--paper) 88%, transparent);
+  backdrop-filter: saturate(1.2) blur(6px);
+  position: sticky; top: 0; z-index: 20;
+}
+.tabs-inner { display: flex; gap: 0; overflow-x: auto; scrollbar-width: none; }
+.tabs-inner::-webkit-scrollbar { display: none; }
+.tab {
+  appearance: none; -webkit-appearance: none; background: none; border: none; cursor: pointer;
+  font-family: var(--sans); font-size: 0.9rem; font-weight: 600; color: var(--ink-faint);
+  padding: 0.95rem 0; margin-right: 1.75rem; white-space: nowrap;
+  border-bottom: 2px solid transparent; margin-bottom: -1px;
+  transition: color 0.15s var(--ease), border-color 0.15s var(--ease);
+}
+.tab:last-child { margin-right: 0; }
+.tab:hover { color: var(--ink-soft); }
+.tab[aria-selected="true"] { color: var(--accent-strong); border-bottom-color: var(--accent); }
+.tab:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 3px; }
+.tab-panel[hidden] { display: none; }
+.tab-panel > section.doc:first-child { border-top: none; }
+
 /* ---- Calculator grid -------------------------------------------------- */
 .calc { display: grid; grid-template-columns: 1fr; gap: clamp(1.25rem, 3vw, 2rem); padding: clamp(1.75rem, 4vw, 3rem) 0; }
 @media (min-width: 900px) { .calc { grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr); align-items: start; } }
@@ -159,7 +182,7 @@ legend + * { clear: both; }
 .auto-tag {
   display: none; font-size: 0.62rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
   color: var(--accent-strong); background: var(--accent-tint); border-radius: 4px; padding: 0.05rem 0.35rem;
-  vertical-align: middle;
+  vertical-align: middle; margin-left: 0.45rem;
 }
 .mode-sphcyl .auto-tag { display: inline-block; }
 .input[readonly] { background: var(--paper-2); color: var(--ink-soft); cursor: default; }
@@ -190,7 +213,7 @@ legend + * { clear: both; }
 
 /* ---- Result panel ----------------------------------------------------- */
 .result {
-  position: sticky; top: 1rem;
+  position: sticky; top: 4rem;
   background: var(--panel);
   border: 1px solid var(--rule-strong);
   border-radius: var(--radius);
@@ -299,7 +322,9 @@ section.doc li { margin-bottom: 0.5rem; }
 footer { border-top: 1px solid var(--rule-strong); background: var(--paper-2); padding: clamp(1.75rem, 4vw, 2.5rem) 0 3rem; margin-top: 2rem; }
 footer .disclaimer { font-size: 0.76rem; line-height: 1.55; color: var(--ink-faint); max-width: 80ch; }
 footer .disclaimer strong { color: var(--ink-soft); }
-footer .meta { margin-top: 1.2rem; font-size: 0.78rem; color: var(--ink-faint); display: flex; gap: 1.2rem; flex-wrap: wrap; }
+footer .meta { margin-top: 1.2rem; font-size: 0.78rem; color: var(--ink-faint); display: flex; gap: 1.2rem; flex-wrap: wrap; align-items: baseline; }
+.metalink { appearance: none; -webkit-appearance: none; background: none; border: none; padding: 0; cursor: pointer; font: inherit; color: var(--accent-strong); text-decoration: underline; text-underline-offset: 2px; }
+.metalink:hover { color: var(--accent); }
 
 /* ---- Print planning sheet --------------------------------------------- */
 .print-only { display: none; }
@@ -307,7 +332,7 @@ footer .meta { margin-top: 1.2rem; font-size: 0.78rem; color: var(--ink-faint); 
 @media print {
   @page { margin: 14mm 16mm; }
   /* Hide the entire interactive app; show only the planning sheet. */
-  body > header, body > main, body > footer { display: none !important; }
+  body > header, body > nav, body > main, body > footer { display: none !important; }
   body { background: #fff; font-size: 10.5pt; }
   #print-sheet.print-only { display: block; color: var(--ink); }
   a { color: var(--ink); text-decoration: none; }

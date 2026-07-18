@@ -551,12 +551,34 @@ function resetAll() {
 
 // ---- wire up ----------------------------------------------------------------
 
+// ---- tabbed sections -------------------------------------------------------
+
+const TABS = ["calc", "how", "compare"];
+
+/** Show one tab's panel; entered data persists (panels are only hidden). */
+function setTab(name) {
+  for (const t of TABS) {
+    const active = t === name;
+    document.getElementById(`tabbtn-${t}`).setAttribute("aria-selected", String(active));
+    document.getElementById(`tab-${t}`).hidden = !active;
+  }
+  if (name === "compare") recompute(); // ensure the Barrett map reflects current inputs
+  window.scrollTo(0, 0);
+}
+
+// ---- wire up ----------------------------------------------------------------
+
 els.form.addEventListener("input", recompute);
 els.modeSphCyl.addEventListener("click", () => setSeMode("sphcyl"));
 els.modeSe.addEventListener("click", () => setSeMode("se"));
 els.methodAuto.addEventListener("click", () => setCalcMethod("auto"));
 els.methodManual.addEventListener("click", () => setCalcMethod("manual"));
 els.resetBtn.addEventListener("click", resetAll);
+
+for (const t of TABS) document.getElementById(`tabbtn-${t}`).addEventListener("click", () => setTab(t));
+document.querySelectorAll("[data-tab-link]").forEach((el) =>
+  el.addEventListener("click", () => setTab(el.getAttribute("data-tab-link")))
+);
 
 setCalcMethod("auto"); // initialize calculation method
 setSeMode("sphcyl"); // initialize refraction-entry mode and first render

@@ -14,11 +14,20 @@
   <div class="wrap">
     <p class="eyebrow">IOL Exchange &middot; MR Biometry Formula</p>
     <h1>IOL Exchange Power Calculator</h1>
-    <p class="lede">Estimates the ideal IOL power for IOL exchange procedures using the manifest refraction (MR) biometry formula for eyes undergoing lens exchange.</p>
+    <p class="lede">Estimates the ideal IOL power using the manifest refraction (MR) biometry formula for eyes undergoing lens exchange.</p>
   </div>
 </header>
 
+<nav class="tabs no-print" aria-label="Sections">
+  <div class="wrap tabs-inner" role="tablist">
+    <button type="button" class="tab" id="tabbtn-calc" role="tab" aria-selected="true" aria-controls="tab-calc">Calculator</button>
+    <button type="button" class="tab" id="tabbtn-how" role="tab" aria-selected="false" aria-controls="tab-how">How it works</button>
+    <button type="button" class="tab" id="tabbtn-compare" role="tab" aria-selected="false" aria-controls="tab-compare">Compare with Barrett&nbsp;Rx</button>
+  </div>
+</nav>
+
 <main class="wrap">
+  <div id="tab-calc" class="tab-panel" role="tabpanel" aria-labelledby="tabbtn-calc">
   <div class="calc">
     <!-- ================= INPUTS ================= -->
     <form id="calc-form" novalidate>
@@ -43,7 +52,7 @@
       <div class="method-toggle no-print">
         <span class="seg" id="calc-method" role="group" aria-label="Calculation method">
           <button type="button" id="method-auto" aria-pressed="true">Compute from biometry</button>
-          <button type="button" id="method-manual" aria-pressed="false">Enter from printout</button>
+          <button type="button" id="method-manual" aria-pressed="false">Enter Holladay 1 from printout</button>
         </span>
         <p class="method-hint" id="method-hint"></p>
       </div>
@@ -64,7 +73,7 @@
             <input class="input" id="mr-cyl" inputmode="decimal" autocomplete="off" placeholder="e.g. -0.75" data-mr />
           </div>
           <div class="field full" id="mr-se-wrap">
-            <label for="mr-se">Spherical equivalent <span class="unit">D</span> <span class="auto-tag" id="se-auto-tag">auto</span></label>
+            <label for="mr-se"><span>Spherical equivalent <span class="auto-tag" id="se-auto-tag">auto</span></span> <span class="unit">D</span></label>
             <input class="input" id="mr-se" inputmode="decimal" autocomplete="off" placeholder="e.g. -0.87" />
           </div>
         </div>
@@ -123,10 +132,10 @@
             <input class="input" id="m-cur-power" inputmode="decimal" autocomplete="off" placeholder="e.g. 21.00" />
           </div>
           <div class="field">
-            <label for="m-b"><span>Predicted refraction (<em>b</em>)</span> <span class="unit">D</span></label>
-            <input class="input" id="m-b" inputmode="decimal" autocomplete="off" placeholder="Holladay 1, e.g. -0.30" />
+            <label for="m-b"><span>Predicted Holladay&nbsp;1 SE</span> <span class="unit">D</span></label>
+            <input class="input" id="m-b" inputmode="decimal" autocomplete="off" placeholder="e.g. -0.30" />
           </div>
-          <div class="field-note">Enter the Holladay&nbsp;1 predicted refraction shown on the printout for the IOL <em>currently in the eye</em> (value <em>b</em>).</div>
+          <div class="field-note">Enter the Holladay&nbsp;1 predicted refraction (spherical equivalent) shown on the printout for the IOL <em>currently in the eye</em> (value <em>b</em>).</div>
         </div>
       </fieldset>
 
@@ -138,16 +147,16 @@
             <input class="input" id="m-p1" inputmode="decimal" autocomplete="off" placeholder="e.g. 20.50" />
           </div>
           <div class="field">
-            <label for="m-c1"><span>Predicted refr. 1 (<em>c</em>)</span> <span class="unit">D</span></label>
-            <input class="input" id="m-c1" inputmode="decimal" autocomplete="off" placeholder="Holladay 1" />
+            <label for="m-c1"><span>Predicted Holladay&nbsp;1 SE</span> <span class="unit">D</span></label>
+            <input class="input" id="m-c1" inputmode="decimal" autocomplete="off" placeholder="e.g. -0.20" />
           </div>
           <div class="field">
             <label for="m-p2">IOL power 2 <span class="unit">D</span></label>
             <input class="input" id="m-p2" inputmode="decimal" autocomplete="off" placeholder="e.g. 21.00" />
           </div>
           <div class="field">
-            <label for="m-c2"><span>Predicted refr. 2 (<em>c</em>)</span> <span class="unit">D</span></label>
-            <input class="input" id="m-c2" inputmode="decimal" autocomplete="off" placeholder="Holladay 1" />
+            <label for="m-c2"><span>Predicted Holladay&nbsp;1 SE</span> <span class="unit">D</span></label>
+            <input class="input" id="m-c2" inputmode="decimal" autocomplete="off" placeholder="e.g. -0.55" />
           </div>
           <div class="field-note">Enter two candidate new IOL powers (0.5&nbsp;D apart) and their Holladay&nbsp;1 predicted refractions (values <em>c</em>) from the printout. The tool interpolates the rest, exactly as the authors' spreadsheet does.</div>
         </div>
@@ -180,7 +189,9 @@
       </div>
     </aside>
   </div>
+  </div><!-- /#tab-calc -->
 
+  <div id="tab-how" class="tab-panel" role="tabpanel" aria-labelledby="tabbtn-how" hidden>
   <!-- ================= HOW IT WORKS ================= -->
   <section class="doc" id="how">
     <h2>How the formula works</h2>
@@ -215,33 +226,6 @@
     <p class="prose">This calculator runs that same computation, then inverts it: given your target refraction it solves for the new IOL power whose prediction, corrected by the observed error, lands on your target. It also tabulates the nearby available powers so you can see the trade-off at each 0.5&nbsp;D step.</p>
   </section>
 
-  <!-- ================= BARRETT RX ================= -->
-  <section class="doc" id="barrett">
-    <h2>Compare with the Barrett Rx formula</h2>
-    <p class="sub">The other formula developed specifically for IOL exchange.</p>
-
-    <p class="prose">The Barrett Rx formula is the established exchange formula and the comparator in the paper. It is proprietary and unpublished, so it cannot be reproduced here, but it is hosted free of charge by the APACRS. Open it in a new tab and copy across the values you have already entered:</p>
-
-    <p><a class="btn primary" id="barrett-link" href="https://calc.apacrs.org/barrett_rx105/" target="_blank" rel="noopener noreferrer">Open the official Barrett Rx calculator &nearr;</a></p>
-
-    <table class="mapping">
-      <thead><tr><th>Your value here</th><th>Enter in Barrett Rx as</th><th class="map-val" style="text-align:right">Value</th></tr></thead>
-      <tbody id="barrett-map">
-        <tr><td>Axial length</td><td>Axial Length</td><td class="map-val" data-map="al">&mdash;</td></tr>
-        <tr><td>K1 / K2</td><td>Measured K1 / K2</td><td class="map-val" data-map="k">&mdash;</td></tr>
-        <tr><td>Original IOL power</td><td>Implanted IOL Power</td><td class="map-val" data-map="origp">&mdash;</td></tr>
-        <tr><td>Original A-constant</td><td>Implanted IOL A-constant</td><td class="map-val" data-map="origa">&mdash;</td></tr>
-        <tr><td>Manifest refraction (SE)</td><td>Current Refraction (sphere / cyl / axis)</td><td class="map-val" data-map="mr">&mdash;</td></tr>
-        <tr><td>New IOL A-constant</td><td>New IOL A-constant</td><td class="map-val" data-map="newa">&mdash;</td></tr>
-        <tr><td>Target refraction</td><td>Target Refraction</td><td class="map-val" data-map="target">&mdash;</td></tr>
-      </tbody>
-    </table>
-
-    <div class="callout">
-      <strong>What the paper found.</strong> Across all three lens-position subgroups (in-the-bag, anterior optic capture, and sulcus with posterior optic capture), the MR biometry formula had a significantly lower root-mean-square absolute error than Barrett Rx. For in-the-bag exchanges its median prediction error was 0.00&nbsp;D, versus &minus;0.23&nbsp;D for Barrett Rx.
-    </div>
-  </section>
-
   <!-- ================= LIMITATIONS ================= -->
   <section class="doc" id="limits">
     <h2>Limitations &amp; scope</h2>
@@ -271,6 +255,36 @@
     </div>
     <p class="prose" style="margin-top:1.2rem;font-size:0.9rem;">This web calculator is an independent implementation created to make the published method easy to use. It is not affiliated with, reviewed by, or endorsed by the authors, Baylor College of Medicine, the American Academy of Ophthalmology, or <span style="font-style:italic">Ophthalmology</span> / Elsevier. The Barrett Rx formula and calculator are the work of Graham&nbsp;D.&nbsp;Barrett and the APACRS.</p>
   </section>
+  </div><!-- /#tab-how -->
+
+  <div id="tab-compare" class="tab-panel" role="tabpanel" aria-labelledby="tabbtn-compare" hidden>
+  <!-- ================= BARRETT RX ================= -->
+  <section class="doc" id="barrett">
+    <h2>Compare with the Barrett Rx formula</h2>
+    <p class="sub">The other formula developed specifically for IOL exchange.</p>
+
+    <p class="prose">The Barrett Rx formula is the established exchange formula and the comparator in the paper. It is proprietary and unpublished, so it cannot be reproduced here, but it is hosted free of charge by the APACRS. Open it in a new tab and copy across the values you have already entered on the Calculator tab:</p>
+
+    <p><a class="btn primary" id="barrett-link" href="https://calc.apacrs.org/barrett_rx105/" target="_blank" rel="noopener noreferrer">Open the official Barrett Rx calculator &nearr;</a></p>
+
+    <table class="mapping">
+      <thead><tr><th>Your value here</th><th>Enter in Barrett Rx as</th><th class="map-val" style="text-align:right">Value</th></tr></thead>
+      <tbody id="barrett-map">
+        <tr><td>Axial length</td><td>Axial Length</td><td class="map-val" data-map="al">&mdash;</td></tr>
+        <tr><td>K1 / K2</td><td>Measured K1 / K2</td><td class="map-val" data-map="k">&mdash;</td></tr>
+        <tr><td>Original IOL power</td><td>Implanted IOL Power</td><td class="map-val" data-map="origp">&mdash;</td></tr>
+        <tr><td>Original A-constant</td><td>Implanted IOL A-constant</td><td class="map-val" data-map="origa">&mdash;</td></tr>
+        <tr><td>Manifest refraction (SE)</td><td>Current Refraction (sphere / cyl / axis)</td><td class="map-val" data-map="mr">&mdash;</td></tr>
+        <tr><td>New IOL A-constant</td><td>New IOL A-constant</td><td class="map-val" data-map="newa">&mdash;</td></tr>
+        <tr><td>Target refraction</td><td>Target Refraction</td><td class="map-val" data-map="target">&mdash;</td></tr>
+      </tbody>
+    </table>
+
+    <div class="callout">
+      <strong>What the paper found.</strong> Across all three lens-position subgroups (in-the-bag, anterior optic capture, and sulcus with posterior optic capture), the MR biometry formula had a significantly lower root-mean-square absolute error than Barrett Rx. For in-the-bag exchanges its median prediction error was 0.00&nbsp;D, versus &minus;0.23&nbsp;D for Barrett Rx.
+    </div>
+  </section>
+  </div><!-- /#tab-compare -->
 </main>
 
 <footer>
@@ -280,7 +294,7 @@
     </p>
     <div class="meta">
       <span>Independent implementation of the MR biometry formula.</span>
-      <a href="#credit">Citation</a>
+      <button type="button" class="metalink" data-tab-link="how">Citation &amp; credit</button>
       <a href="https://doi.org/10.1016/j.ophtha.2026.01.017" target="_blank" rel="noopener noreferrer">Original manuscript</a>
     </div>
   </div>
