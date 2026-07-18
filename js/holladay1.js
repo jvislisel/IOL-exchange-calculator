@@ -45,6 +45,9 @@ const RANGES = Object.freeze({
   aConstant: { min: 100, max: 130, unit: "", label: "A-constant" },
   iolPower: { min: -20, max: 60, unit: "D", label: "IOL power" },
   targetRefraction: { min: -20, max: 20, unit: "D", label: "Target refraction" },
+  sphere: { min: -30, max: 30, unit: "D", label: "Sphere" },
+  cylinder: { min: -15, max: 15, unit: "D", label: "Cylinder" },
+  manifestSE: { min: -30, max: 30, unit: "D", label: "Spherical equivalent" },
 });
 
 /** Surgeon Factor (mm) from a manufacturer A-constant. */

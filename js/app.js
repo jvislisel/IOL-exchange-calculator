@@ -34,6 +34,7 @@ const els = {
 
 let seMode = "sphcyl"; // or "se"
 let calcMethod = "auto"; // or "manual"
+let focusedEl = null; // the input currently being edited; its flags are deferred until blur
 
 const METHOD_HINTS = {
   auto: "Enter the biometry and A-constants; the tool computes the Holladay&nbsp;1 predictions and the recommended power. Convenient, and independently validated to better than 0.01&nbsp;D.",
@@ -79,6 +80,9 @@ const TYPICAL = {
   aConstant: { min: 115, max: 122 },
   iolPower: { min: 0, max: 34 },
   targetRefraction: { min: -3.0, max: 1.0 },
+  sphere: { min: -8, max: 8 },
+  cylinder: { min: -6, max: 6 },
+  manifestSE: { min: -8, max: 8 },
 };
 
 function typicalWarn(field, value) {
@@ -89,6 +93,24 @@ function typicalWarn(field, value) {
 
 function setInvalid(el, isInvalid) {
   el.classList.toggle("invalid", isInvalid);
+}
+
+/**
+ * Flag a field as invalid, deferring the visual flag and message while the field
+ * is being edited (so no flag flashes mid-typing). A deferred error still blocks
+ * the result (state.pending) so a bad in-progress value never produces output.
+ */
+function markInvalid(el, msg, errors, state) {
+  if (el === focusedEl) { state.pending = true; return; }
+  setInvalid(el, true);
+  if (msg) errors.push(msg);
+}
+
+/** Show a typical-range warning, deferred while the field is being edited. */
+function markWarn(el, msg, label, warnings) {
+  if (el === focusedEl) return;
+  setFieldWarn(el, msg);
+  warnings.push(label);
 }
 
 /** Show or clear an inline "verify this value" warning under a field. */
@@ -124,27 +146,27 @@ const ALL_INPUT_FIELDS = () => [
 const rangeUnit = (field) => (RANGES[field].unit ? " " + RANGES[field].unit : "");
 
 /** Shared manifest-refraction parsing -> spherical equivalent (a). */
-function parseMR(errors) {
+function parseMR(errors, warnings, state) {
   let measuredSE = null, seOk = false;
   if (seMode === "se") {
     const se = num(els.mrSe);
     if (!se.empty) {
       measuredSE = se.value; seOk = se.ok;
-      if (!se.ok) { errors.push("Spherical equivalent must be a number."); setInvalid(els.mrSe, true); }
+      if (!se.ok) markInvalid(els.mrSe, "Spherical equivalent must be a number.", errors, state);
+      else checkField(se, els.mrSe, "manifestSE", "Spherical equivalent", errors, warnings, state);
     }
   } else {
     const sph = num(els.mrSph), cyl = num(els.mrCyl);
     if (!sph.empty || !cyl.empty) {
-      if ((!sph.empty && !sph.ok) || (!cyl.empty && !cyl.ok)) {
-        errors.push("Sphere and cylinder must be numbers.");
-        if (!sph.ok && !sph.empty) setInvalid(els.mrSph, true);
-        if (!cyl.ok && !cyl.empty) setInvalid(els.mrCyl, true);
-      } else if (sph.empty) {
-        errors.push("Enter the sphere of the manifest refraction.");
-      } else {
+      if (!sph.ok && !sph.empty) markInvalid(els.mrSph, "Sphere must be a number.", errors, state);
+      if (!cyl.ok && !cyl.empty) markInvalid(els.mrCyl, "Cylinder must be a number.", errors, state);
+      if (!sph.empty && sph.ok && (cyl.empty || cyl.ok)) {
         measuredSE = sphericalEquivalent(sph.value, cyl.empty ? 0 : cyl.value);
         seOk = true;
       }
+      // Range / typical-range checks on the values that are present.
+      checkField(sph, els.mrSph, "sphere", "Sphere", errors, warnings, state);
+      checkField(cyl, els.mrCyl, "cylinder", "Cylinder", errors, warnings, state);
     }
     els.mrSe.value = measuredSE == null ? "" : signed(measuredSE);
   }
@@ -152,29 +174,30 @@ function parseMR(errors) {
 }
 
 /** Check one numeric field for hard-range errors and typical-range warnings. */
-function checkField(f, el, field, label, errors, warnings) {
+function checkField(f, el, field, label, errors, warnings, state) {
   if (f.empty || !f.ok) return;
   const err = rangeError(field, f.value);
-  if (err) { errors.push(err); setInvalid(el, true); return; }
+  if (err) { markInvalid(el, err, errors, state); return; }
   const w = typicalWarn(field, f.value);
-  if (w) { setFieldWarn(el, w); warnings.push(`${label} ${f.value}${rangeUnit(field)}`); }
+  if (w) markWarn(el, w, `${label} ${f.value}${rangeUnit(field)}`, warnings);
 }
 
 function readInputs() {
   const errors = [];
   const warnings = [];
+  const state = { pending: false }; // a deferred (focused-field) error is pending
   ALL_INPUT_FIELDS().forEach((e) => { setInvalid(e, false); setFieldWarn(e, null); });
 
-  const { measuredSE, seOk } = parseMR(errors);
+  const { measuredSE, seOk } = parseMR(errors, warnings, state);
   const tg = num(els.target);
-  const base = { errors, warnings, method: calcMethod, measuredSE, target: tg.ok ? tg.value : null };
+  const base = { errors, warnings, state, method: calcMethod, measuredSE, target: tg.ok ? tg.value : null };
 
   if (calcMethod === "auto") return readAuto(base, measuredSE, seOk, tg);
   return readManual(base, measuredSE, seOk, tg);
 }
 
 function readAuto(base, measuredSE, seOk, tg) {
-  const { errors, warnings } = base;
+  const { errors, warnings, state } = base;
   const al = num(els.al), k1 = num(els.k1), k2 = num(els.k2);
   const op = num(els.origPower), oa = num(els.origA), na = num(els.newA);
 
@@ -187,24 +210,24 @@ function readAuto(base, measuredSE, seOk, tg) {
   let allPresent = measuredSE !== null;
   for (const [f, el, label] of required) {
     if (f.empty) { allPresent = false; continue; }
-    if (!f.ok) { errors.push(`${label} must be a number.`); setInvalid(el, true); }
+    if (!f.ok) markInvalid(el, `${label} must be a number.`, errors, state);
   }
 
-  checkField(al, els.al, "axialLength", "Axial length", errors, warnings);
-  checkField(op, els.origPower, "iolPower", "Original IOL power", errors, warnings);
-  checkField(oa, els.origA, "aConstant", "Original A-constant", errors, warnings);
-  checkField(na, els.newA, "aConstant", "New IOL A-constant", errors, warnings);
-  checkField(tg, els.target, "targetRefraction", "Target refraction", errors, warnings);
+  checkField(al, els.al, "axialLength", "Axial length", errors, warnings, state);
+  checkField(op, els.origPower, "iolPower", "Original IOL power", errors, warnings, state);
+  checkField(oa, els.origA, "aConstant", "Original A-constant", errors, warnings, state);
+  checkField(na, els.newA, "aConstant", "New IOL A-constant", errors, warnings, state);
+  checkField(tg, els.target, "targetRefraction", "Target refraction", errors, warnings, state);
   for (const [f, el, lbl] of [[k1, els.k1, "K1"], [k2, els.k2, "K2"]]) {
     if (f.empty || !f.ok) continue;
     const err = rangeError("meanK", f.value);
-    if (err) { errors.push(err); setInvalid(el, true); continue; }
+    if (err) { markInvalid(el, err, errors, state); continue; }
     const w = typicalWarn("meanK", f.value);
-    if (w) { setFieldWarn(el, w); warnings.push(`Keratometry ${lbl} ${f.value} D`); }
+    if (w) markWarn(el, w, `Keratometry ${lbl} ${f.value} D`, warnings);
   }
 
   const meanK = k1.ok && k2.ok ? (k1.value + k2.value) / 2 : null;
-  const ok = anyStarted && allPresent && errors.length === 0;
+  const ok = anyStarted && allPresent && errors.length === 0 && !state.pending;
   return {
     ...base, ok, anyStarted, errors: [...new Set(errors)], meanK,
     eye: ok ? { axialLength: al.value, k1: k1.value, k2: k2.value } : null,
@@ -215,46 +238,42 @@ function readAuto(base, measuredSE, seOk, tg) {
 }
 
 function readManual(base, measuredSE, seOk, tg) {
-  const { errors, warnings } = base;
+  const { errors, warnings, state } = base;
   const cur = num(els.mCurPower); // optional (for the sheet)
   const b = num(els.mB), p1 = num(els.mP1), c1 = num(els.mC1), p2 = num(els.mP2), c2 = num(els.mC2);
 
   const required = [
-    [b, els.mB, "Current IOL predicted refraction"],
-    [p1, els.mP1, "IOL power 1"], [c1, els.mC1, "Predicted refraction 1"],
-    [p2, els.mP2, "IOL power 2"], [c2, els.mC2, "Predicted refraction 2"],
+    [b, els.mB, "Original IOL predicted SE"],
+    [p1, els.mP1, "IOL power 1"], [c1, els.mC1, "Predicted SE 1"],
+    [p2, els.mP2, "IOL power 2"], [c2, els.mC2, "Predicted SE 2"],
     [tg, els.target, "Target refraction"],
   ];
   const anyStarted = [cur, b, p1, c1, p2, c2].some((f) => !f.empty) || seOk;
   let allPresent = measuredSE !== null;
   for (const [f, el, label] of required) {
     if (f.empty) { allPresent = false; continue; }
-    if (!f.ok) { errors.push(`${label} must be a number.`); setInvalid(el, true); }
+    if (!f.ok) markInvalid(el, `${label} must be a number.`, errors, state);
   }
 
   // Ranges/warnings: powers use iolPower bounds, predictions & target use refraction bounds.
-  checkField(cur, els.mCurPower, "iolPower", "Original IOL power", errors, warnings);
-  checkField(p1, els.mP1, "iolPower", "IOL power 1", errors, warnings);
-  checkField(p2, els.mP2, "iolPower", "IOL power 2", errors, warnings);
-  for (const [f, el, label] of [[b, els.mB, "Current IOL predicted refraction"], [c1, els.mC1, "Predicted refraction 1"], [c2, els.mC2, "Predicted refraction 2"]]) {
-    if (f.empty || !f.ok) continue;
-    const err = rangeError("targetRefraction", f.value);
-    if (err) { errors.push(`${label} looks out of range (${f.value} D).`); setInvalid(el, true); }
-  }
-  checkField(tg, els.target, "targetRefraction", "Target refraction", errors, warnings);
+  checkField(cur, els.mCurPower, "iolPower", "Original IOL power", errors, warnings, state);
+  checkField(p1, els.mP1, "iolPower", "IOL power 1", errors, warnings, state);
+  checkField(p2, els.mP2, "iolPower", "IOL power 2", errors, warnings, state);
+  checkField(b, els.mB, "manifestSE", "Original IOL predicted SE", errors, warnings, state);
+  checkField(c1, els.mC1, "manifestSE", "Predicted SE 1", errors, warnings, state);
+  checkField(c2, els.mC2, "manifestSE", "Predicted SE 2", errors, warnings, state);
+  checkField(tg, els.target, "targetRefraction", "Target refraction", errors, warnings, state);
 
   // Two IOL powers must differ (slope) and are expected 0.5 D apart.
   if (p1.ok && p2.ok) {
     if (p1.value === p2.value) {
-      errors.push("The two IOL powers must be different.");
-      setInvalid(els.mP1, true); setInvalid(els.mP2, true);
+      markInvalid(els.mP2, "The two IOL powers must be different.", errors, state);
     } else if (Math.abs(Math.abs(p1.value - p2.value) - 0.5) > 1e-9) {
-      setFieldWarn(els.mP2, "Expected 0.5 D apart — please verify");
-      warnings.push("The two IOL powers are not 0.5 D apart");
+      markWarn(els.mP2, "Expected 0.5 D apart — please verify", "The two IOL powers are not 0.5 D apart", warnings);
     }
   }
 
-  const ok = anyStarted && allPresent && errors.length === 0;
+  const ok = anyStarted && allPresent && errors.length === 0 && !state.pending;
   return {
     ...base, ok, anyStarted, errors: [...new Set(errors)], meanK: null,
     manual: ok ? { a: measuredSE, b: b.value, p1: p1.value, c1: c1.value, p2: p2.value, c2: c2.value, curPower: cur.ok ? cur.value : null } : null,
@@ -381,6 +400,9 @@ function buildPrintSheet(data, res) {
     })
     .join("");
 
+  // Bold the target refraction unless it is plano, so it stands out.
+  const targetCell = target !== 0 ? `<strong>${signed(target)} D</strong>` : `${signed(target)} D`;
+
   // Method-specific input rows.
   let inputRows;
   if (data.method === "auto") {
@@ -394,7 +416,7 @@ function buildPrintSheet(data, res) {
       <tr><td>Original A-constant</td><td>${originalIol.aConstant.toFixed(2)}</td></tr>
       <tr><td>MR with original IOL (SE)</td><td>${signed(measuredSE)} D</td></tr>
       <tr><td>New IOL A-constant</td><td>${newIol.aConstant.toFixed(2)}</td></tr>
-      <tr><td>Target refraction</td><td>${signed(target)} D</td></tr>`;
+      <tr><td>Target refraction</td><td>${targetCell}</td></tr>`;
   } else {
     const m = data.manual;
     inputRows = `
@@ -404,7 +426,7 @@ function buildPrintSheet(data, res) {
       <tr><td>Original IOL predicted SE (b)</td><td>${signed(m.b)} D</td></tr>
       <tr><td>New IOL ${m.p1.toFixed(2)} D predicted SE (c)</td><td>${signed(m.c1)} D</td></tr>
       <tr><td>New IOL ${m.p2.toFixed(2)} D predicted SE (c)</td><td>${signed(m.c2)} D</td></tr>
-      <tr><td>Target refraction</td><td>${signed(target)} D</td></tr>`;
+      <tr><td>Target refraction</td><td>${targetCell}</td></tr>`;
   }
 
   els.printSheet.innerHTML = `
@@ -592,8 +614,15 @@ function setTab(name) {
 // ---- wire up ----------------------------------------------------------------
 
 els.form.addEventListener("input", recompute);
+els.form.addEventListener("focusin", (e) => {
+  if (e.target && e.target.matches("input.input")) { focusedEl = e.target; recompute(); }
+});
 els.form.addEventListener("focusout", (e) => {
-  if (e.target && e.target.matches("input.input")) formatNumericField(e.target);
+  if (e.target && e.target.matches("input.input")) {
+    formatNumericField(e.target);
+    focusedEl = null;
+    recompute();
+  }
 });
 els.modeSphCyl.addEventListener("click", () => setSeMode("sphcyl"));
 els.modeSe.addEventListener("click", () => setSeMode("se"));
